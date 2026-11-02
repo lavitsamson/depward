@@ -64,8 +64,10 @@ you can't fix it, say so plainly. Never weaken or delete a test to make it pass.
    pin exact versions.
 2. Write small internals ourselves instead of adding packages: the tar reader (ustar plus
    pax headers, in memory), Levenshtein distance, entropy, and the command-line tokenizer.
-3. `.npmrc` sets `ignore-scripts=true`. pnpm settings: `minimumReleaseAge` is 7 days and
-   `onlyBuiltDependencies` is empty.
+3. Install scripts are off: `ignoreScripts: true` in `pnpm-workspace.yaml` (and
+   `ignore-scripts=true` in `.npmrc` for npm users). `minimumReleaseAge` is 10080 minutes
+   (7 days). `allowBuilds` is empty with `strictDepBuilds: true`; pnpm 11 replaced
+   `onlyBuiltDependencies` with `allowBuilds` (ADR 0001).
 4. Pin GitHub Actions by full commit SHA. CI uses least-privilege `permissions:`.
 5. CI dogfoods the tool: it runs `depward diff --lockfile --base origin/main` on every PR.
 
