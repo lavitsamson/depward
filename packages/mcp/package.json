@@ -1,0 +1,36 @@
+{
+  "name": "@depward/mcp",
+  "version": "0.0.0",
+  "description": "MCP server that exposes depward's install gate and version diff to AI coding agents.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lavitsamson/depward.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/lavitsamson/depward/tree/main/packages/mcp#readme",
+  "bugs": "https://github.com/lavitsamson/depward/issues",
+  "type": "module",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "@depward/source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check:publish": "publint --strict && attw --pack . --profile esm-only"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

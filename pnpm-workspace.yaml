@@ -1,0 +1,16 @@
+packages:
+  - packages/*
+
+# Our own supply chain. See CLAUDE.md "Our own supply chain".
+# Docs: https://pnpm.io/settings/build and https://pnpm.io/settings/dependency-resolution
+
+# Never run lifecycle scripts of dependencies (or our own) on install.
+ignoreScripts: true
+
+# Since pnpm 11, `allowBuilds` replaces `onlyBuiltDependencies`. Empty = no package may
+# run build scripts; strictDepBuilds turns any unreviewed build script into an error.
+allowBuilds: {}
+strictDepBuilds: true
+
+# Only install versions published at least 7 days ago (value is in minutes).
+minimumReleaseAge: 10080
