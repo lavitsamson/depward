@@ -27,8 +27,8 @@ Phase 5, HTML to PDF, moved to its own repository: ADR 0002.)
 - [x] `.npmrc` with `ignore-scripts=true`. `pnpm-workspace.yaml` with
       `minimumReleaseAge` and an empty `onlyBuiltDependencies` (pnpm 11+ replaced it
       with `allowBuilds: {}` plus `strictDepBuilds: true`; see ADR 0001)
-- [ ] CI with three jobs: lint, test, check:publish. Matrix: Node 22 and 24, on Linux,
-      macOS, and Windows. Actions pinned by SHA (workflow written; not yet run on GitHub)
+- [x] CI with three jobs: lint, test, check:publish. Matrix: Node 22 and 24, on Linux,
+      macOS, and Windows. Actions pinned by SHA
 - [ ] changesets configured. Release workflow uses npm trusted publishing (OIDC) with
       provenance (written; needs `repository.url` and npm trusted-publisher setup)
 - [x] `docs/findings.md` (empty catalog), `docs/adr/0001-esm-only-node22.md`,
