@@ -17,6 +17,9 @@ concurrency:
 
 jobs:
   release:
+    # Off until npm trusted publishing is configured for every package. Enable with the
+    # repository variable RELEASE_ENABLED=true (Settings → Secrets and variables → Actions).
+    if: vars.RELEASE_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
