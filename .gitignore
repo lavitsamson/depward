@@ -2,5 +2,7 @@ node_modules/
 dist/
 coverage/
 *.tgz
+# Test fixtures are synthetic, inert tarballs and must be committed.
+!fixtures/**/*.tgz
 *.log
 .DS_Store
