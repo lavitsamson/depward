@@ -10,3 +10,35 @@ export {
   type Finding,
   type Severity,
 } from "./findings.ts";
+export { Secret, redactUrl } from "./secret.ts";
+export { createDiskCache, createMemoryCache, defaultCacheDir, type Cache, type CacheEntry } from "./cache.ts";
+export { strongestHash, verifyIntegrity } from "./integrity.ts";
+export {
+  createRegistryClient,
+  type RegistryClient,
+  type RegistryClientOptions,
+  type RegistryLimits,
+  type RegistryTtls,
+} from "./registry/client.ts";
+export {
+  NPM_REGISTRY,
+  authHeaderFor,
+  loadNpmConfig,
+  nerfDart,
+  normalizeRegistry,
+  npmConfigFrom,
+  parseNpmrc,
+  registryFor,
+  type LoadNpmConfigOptions,
+  type NpmConfig,
+  type RegistryAuth,
+} from "./registry/npmrc.ts";
+export {
+  assertPackageName,
+  type Attestations,
+  type Dist,
+  type DistAttestations,
+  type Packument,
+  type Person,
+  type VersionMeta,
+} from "./registry/types.ts";

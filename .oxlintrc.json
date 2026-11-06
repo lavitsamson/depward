@@ -7,7 +7,21 @@
   "rules": {
     "no-eval": "error",
     "no-new-func": "error",
-    "no-throw-literal": "error"
+    "no-throw-literal": "error",
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "_npmUser",
+          "_authToken",
+          "_auth",
+          "_id"
+        ]
+      }
+    ]
   },
-  "ignorePatterns": ["**/dist/**", "**/fixtures/**"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/fixtures/**"
+  ]
 }

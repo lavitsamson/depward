@@ -4,6 +4,7 @@ export type DepwardErrorCode =
   | "INVALID_ARGUMENT"
   | "NETWORK"
   | "TIMEOUT"
+  | "INVALID_RESPONSE"
   | "INTEGRITY_MISMATCH"
   | "LIMIT_EXCEEDED";
 
