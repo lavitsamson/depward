@@ -6,6 +6,8 @@ export type DepwardErrorCode =
   | "TIMEOUT"
   | "INVALID_RESPONSE"
   | "INVALID_ARCHIVE"
+  | "INVALID_LOCKFILE"
+  | "GIT"
   | "UNSAFE_PATH"
   | "INTEGRITY_MISMATCH"
   | "LIMIT_EXCEEDED";

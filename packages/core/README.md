@@ -3,7 +3,7 @@
 Shared foundation for depward: npm registry client, in-memory tarball reader, lockfile parsers, cache, config, and reporters. It has no knowledge of policy.
 
 > **Status:** pre-release (Phase 1). The registry client, caches, integrity
-> verification, and tar reader are implemented; lockfile parsers, config, and reporters
+> verification, tar reader, and lockfile parsers are implemented; config and reporters
 > are next. See the [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -39,6 +39,24 @@ console.log(files.map((f) => f.path));
 memory and strips the leading `package/` segment. It never writes to disk or follows
 links. Limits: 50 MB compressed, 200 MB uncompressed (enforced while inflating), 20,000
 entries. Absolute paths, `..`, and links that leave the package throw `UNSAFE_PATH`.
+
+## Lockfiles
+
+```js
+import { diffLockfiles, parseLockfile, readFileAtRef } from "@depward/core";
+import { readFile } from "node:fs/promises";
+
+const head = parseLockfile("pnpm-lock.yaml", await readFile("pnpm-lock.yaml", "utf8"));
+const baseText = await readFileAtRef("origin/main", "pnpm-lock.yaml", process.cwd()); // git, no shell
+const base = baseText === null ? null : parseLockfile("pnpm-lock.yaml", baseText);
+if (base) console.log(diffLockfiles(base, head).added.map((e) => `${e.name}@${e.version} (${e.source})`));
+```
+
+Supported: `package-lock.json` / `npm-shrinkwrap.json` (v2, v3), `pnpm-lock.yaml` (6.x, 9.x,
+including pnpm 11's two-document files), `yarn.lock` (v1 and berry), and `bun.lock`.
+Older formats and `bun.lockb` give an `unsupported-lockfile` finding. Each entry is tagged
+with its `source` (`registry`, `git`, `tarball`, `file`, `link`, `workspace`, `bundled`,
+`other`). `dev` and `optional` are `null` when the format doesn't record them.
 
 ## Testing
 

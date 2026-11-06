@@ -40,3 +40,8 @@ function compareStrings(a: string, b: string): number {
 export function compareFindings(a: Finding, b: Finding): number {
   return compareSeverity(a.severity, b.severity) || compareStrings(a.package, b.package) || compareStrings(a.id, b.id);
 }
+
+/** Documentation URL for a finding ID (its entry in `docs/findings.md`). */
+export function findingDocsUrl(id: string): string {
+  return `https://github.com/lavitsamson/depward/blob/main/docs/findings.md#${id}`;
+}

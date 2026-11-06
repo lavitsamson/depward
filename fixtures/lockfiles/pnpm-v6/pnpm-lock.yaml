@@ -1,0 +1,83 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      debug:
+        specifier: 4.3.4
+        version: 4.3.4(supports-color@8.1.1)
+      is-plain-obj:
+        specifier: github:sindresorhus/is-plain-obj#v4.1.0
+        version: github.com/sindresorhus/is-plain-obj/68e8cc77bb1bbd0bf7d629d3574b6ca70289b2cc
+      local-lib:
+        specifier: file:./local-lib
+        version: file:local-lib
+      ws-a:
+        specifier: workspace:*
+        version: link:packages/ws-a
+    devDependencies:
+      supports-color:
+        specifier: 8.1.1
+        version: 8.1.1
+    optionalDependencies:
+      isarray:
+        specifier: 2.0.5
+        version: 2.0.5
+
+  packages/ws-a:
+    dependencies:
+      ms:
+        specifier: 2.1.2
+        version: 2.1.2
+
+packages:
+
+  /debug@4.3.4(supports-color@8.1.1):
+    resolution: {integrity: sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==}
+    engines: {node: '>=6.0'}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+    dependencies:
+      ms: 2.1.2
+      supports-color: 8.1.1
+    dev: false
+
+  /has-flag@4.0.0:
+    resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
+    engines: {node: '>=8'}
+
+  /isarray@2.0.5:
+    resolution: {integrity: sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw==}
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /ms@2.1.2:
+    resolution: {integrity: sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==}
+    dev: false
+
+  /supports-color@8.1.1:
+    resolution: {integrity: sha512-MpUEN2OodtUzxvKQl72cUF7RQ5EiHsGvSsVG0ia9c5RbWGL2CI4C7EpPS8UtBIplnlzZiNuV56w+FuNxy3ty2Q==}
+    engines: {node: '>=10'}
+    dependencies:
+      has-flag: 4.0.0
+
+  file:local-lib:
+    resolution: {directory: local-lib, type: directory}
+    name: local-lib
+    dev: false
+
+  github.com/sindresorhus/is-plain-obj/68e8cc77bb1bbd0bf7d629d3574b6ca70289b2cc:
+    resolution: {tarball: https://codeload.github.com/sindresorhus/is-plain-obj/tar.gz/68e8cc77bb1bbd0bf7d629d3574b6ca70289b2cc}
+    name: is-plain-obj
+    version: 4.1.0
+    engines: {node: '>=12'}
+    dev: false
