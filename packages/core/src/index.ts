@@ -6,6 +6,7 @@ export {
   SEVERITIES,
   compareFindings,
   compareSeverity,
+  findingDocsUrl,
   type Evidence,
   type Finding,
   type Severity,
@@ -43,3 +44,12 @@ export {
   type VersionMeta,
 } from "./registry/types.ts";
 export { readTarball, type PackageFile, type PackageFiles, type PackageLink, type TarLimits } from "./tar.ts";
+export { diffLockfiles, parseLockfile, type LockfileChange, type LockfileDiff } from "./lockfile/index.ts";
+export {
+  type DependencySource,
+  type Lockfile,
+  type LockfileEntry,
+  type LockfileFormat,
+  type ParseLockfileOptions,
+} from "./lockfile/types.ts";
+export { readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";

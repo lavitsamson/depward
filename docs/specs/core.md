@@ -70,6 +70,32 @@ interface Evidence { file?: string; line?: number; snippet?: string; detail?: st
 Entries from non-registry sources (git, tarball URL, `file:`, `link:`, `workspace:`) are
 kept and tagged with `source`, so that the gate and diff can treat them specially.
 
+Normalized entry (implemented in M1.3):
+
+```ts
+interface LockfileEntry {
+  name: string; version: string;             // key is `${name}@${version}`
+  source: "registry" | "git" | "tarball" | "file" | "link" | "workspace"
+        | "bundled"                           // npm `inBundle`: shipped inside the parent tarball
+        | "other";                            // yarn `patch:` / `exec:`
+  integrity: string | null;                   // SRI; null for yarn berry (its checksum is not SRI)
+  resolved: string | null;
+  dev: boolean | null;                        // null when the format doesn't record it
+  optional: boolean | null;                   // (yarn v1, yarn berry, bun)
+}
+```
+
+- A package installed at several paths is dev/optional only if every copy is.
+- pnpm v9 has no dev flag. Dev-ness comes from walking `snapshots` from the importers.
+  pnpm 11+ files can hold two YAML documents (an env document with pnpm itself and
+  config dependencies, then the project). Every document is read, and env roots count
+  as prod.
+- `diffLockfiles` keys on `name@version`. A version bump is one `removed` plus one
+  `added`, and Phase 3 pairs them by name. `changed` means the same key with a
+  different `source`, `integrity`, `dev`, or `optional`, or a different `resolved` when
+  neither side has integrity (for example a new git commit). A field one side records as
+  `null` is not compared.
+
 ## Cache
 
 - Location: `$XDG_CACHE_HOME/depward` or the platform equivalent. Override with

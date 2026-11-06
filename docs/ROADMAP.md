@@ -59,11 +59,11 @@ passes in CI on all three operating systems.
 - [x] Content-addressed cache keyed by integrity
 
 ### M1.3 Lockfile parsers
-- [ ] package-lock v2/v3, pnpm-lock (v6 and v9 formats), yarn v1, yarn berry, and
+- [x] package-lock v2/v3, pnpm-lock (v6 and v9 formats), yarn v1, yarn berry, and
       `bun.lock` (text format)
-- [ ] Normalized output: `Map<"name@version", {integrity, resolved, dev, optional}>`
-- [ ] `diffLockfiles(a, b)` returns added, removed, and changed entries
-- [ ] Read a lockfile at a git ref via `git show <ref>:<path>`, using `execFile` with no
+- [x] Normalized output: `Map<"name@version", {integrity, resolved, dev, optional}>`
+- [x] `diffLockfiles(a, b)` returns added, removed, and changed entries
+- [x] Read a lockfile at a git ref via `git show <ref>:<path>`, using `execFile` with no
       shell
 
 ### M1.4 Analyzer (`@depward/analyzer`)
