@@ -45,18 +45,18 @@ passes in CI on all three operating systems.
 ## Phase 1 — Foundation: core and analyzer
 
 ### M1.1 Registry client (`@depward/core`)
-- [ ] Fetch the packument (full document, which is needed for `time`, `_npmUser`, and
+- [x] Fetch the packument (full document, which is needed for `time`, `_npmUser`, and
       `maintainers`), plus version metadata, download counts, and attestations
-- [ ] ETag-aware disk cache (XDG cache dir), with TTLs configurable per data type
-- [ ] Custom registry URL and auth token read from the user's `.npmrc`. Tokens are never
+- [x] ETag-aware disk cache (XDG cache dir), with TTLs configurable per data type
+- [x] Custom registry URL and auth token read from the user's `.npmrc`. Tokens are never
       logged
-- [ ] Recorded-fixture `RegistryClient` for tests
+- [x] Recorded-fixture `RegistryClient` for tests
 
 ### M1.2 Tarball reader
-- [ ] Fetch the tarball and verify `dist.integrity` (SRI sha512) **before** reading it
+- [x] Fetch the tarball and verify `dist.integrity` (SRI sha512) **before** reading it
 - [ ] In-memory gunzip plus a ustar/pax reader. Reject path traversal, absolute paths,
       and escaping symlinks. Enforce size limits
-- [ ] Content-addressed cache keyed by integrity
+- [x] Content-addressed cache keyed by integrity
 
 ### M1.3 Lockfile parsers
 - [ ] package-lock v2/v3, pnpm-lock (v6 and v9 formats), yarn v1, yarn berry, and

@@ -23,6 +23,11 @@
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
     },
+    "./testing": {
+      "@depward/source": "./src/testing.ts",
+      "types": "./dist/testing.d.mts",
+      "default": "./dist/testing.mjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
