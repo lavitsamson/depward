@@ -5,6 +5,8 @@ export type DepwardErrorCode =
   | "NETWORK"
   | "TIMEOUT"
   | "INVALID_RESPONSE"
+  | "INVALID_ARCHIVE"
+  | "UNSAFE_PATH"
   | "INTEGRITY_MISMATCH"
   | "LIMIT_EXCEEDED";
 

@@ -1,6 +1,6 @@
 // Opt-in: hits the real npm registry. Run with `pnpm test:live`.
 import { describe, expect, test } from "vitest";
-import { createMemoryCache, createRegistryClient, npmConfigFrom } from "../../packages/core/src/index.ts";
+import { createMemoryCache, createRegistryClient, npmConfigFrom, readTarball } from "../../packages/core/src/index.ts";
 
 const client = createRegistryClient({ cache: createMemoryCache(), npmConfig: npmConfigFrom(), timeoutMs: 30_000 });
 
@@ -31,9 +31,13 @@ describe("live npm registry", () => {
     expect(att?.provenancePredicateType).toMatch(/^https:\/\/slsa\.dev\/provenance\//);
   });
 
-  test("tarball download is integrity-verified", async () => {
+  test("tarball download is integrity-verified and readable", async () => {
     const meta = await client.versionMeta("semver", "7.6.0");
     const bytes = await client.tarball(meta!);
-    expect([bytes[0], bytes[1]]).toEqual([0x1f, 0x8b]);
+    const pkg = readTarball(bytes);
+    const manifest = pkg.files.find((f) => f.path === "package.json");
+    expect(JSON.parse(new TextDecoder().decode(manifest?.data))).toMatchObject({ name: "semver", version: "7.6.0" });
+    expect(pkg.files.length).toBe(meta!.dist.fileCount);
+    expect(pkg.unpackedSize).toBe(meta!.dist.unpackedSize);
   });
 });

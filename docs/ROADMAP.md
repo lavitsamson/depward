@@ -54,7 +54,7 @@ passes in CI on all three operating systems.
 
 ### M1.2 Tarball reader
 - [x] Fetch the tarball and verify `dist.integrity` (SRI sha512) **before** reading it
-- [ ] In-memory gunzip plus a ustar/pax reader. Reject path traversal, absolute paths,
+- [x] In-memory gunzip plus a ustar/pax reader. Reject path traversal, absolute paths,
       and escaping symlinks. Enforce size limits
 - [x] Content-addressed cache keyed by integrity
 
