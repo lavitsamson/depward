@@ -42,3 +42,4 @@ export {
   type Person,
   type VersionMeta,
 } from "./registry/types.ts";
+export { readTarball, type PackageFile, type PackageFiles, type PackageLink, type TarLimits } from "./tar.ts";
