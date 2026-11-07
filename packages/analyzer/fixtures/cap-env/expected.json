@@ -1,0 +1,1 @@
+{ "description": "non-sensitive env reads", "signals": [], "capabilities": ["env"], "envKeys": ["HOME", "NODE_ENV", "PORT"] }

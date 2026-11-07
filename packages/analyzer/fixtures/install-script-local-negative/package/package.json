@@ -1,0 +1,1 @@
+{ "name": "fx-install-script-local-negative", "version": "1.0.0", "scripts": { "postinstall": "node ./scripts/setup.js" } }

@@ -1,0 +1,1 @@
+{ "description": "postinstall pipes curl into sh", "signals": ["hardcoded-endpoint", "install-script", "install-script-network"], "capabilities": [] }

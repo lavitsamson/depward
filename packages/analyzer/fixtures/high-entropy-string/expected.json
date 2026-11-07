@@ -1,0 +1,7 @@
+{
+  "description": "320-char random base64 alphabet string",
+  "signals": [
+    "high-entropy-string"
+  ],
+  "capabilities": []
+}

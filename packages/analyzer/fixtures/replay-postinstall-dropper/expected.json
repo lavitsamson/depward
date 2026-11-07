@@ -1,0 +1,13 @@
+{
+  "description": "postinstall fetches a URL and spawns node with the response",
+  "signals": [
+    "hardcoded-endpoint",
+    "install-script",
+    "install-script-network"
+  ],
+  "capabilities": [
+    "child_process",
+    "net"
+  ],
+  "severityAtLeast": "high"
+}

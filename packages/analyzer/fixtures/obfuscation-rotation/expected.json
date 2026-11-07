@@ -1,0 +1,7 @@
+{
+  "description": "string-array rotation loop with parseInt",
+  "signals": [
+    "obfuscation"
+  ],
+  "capabilities": []
+}

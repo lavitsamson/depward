@@ -1,0 +1,1 @@
+{ "description": "near miss: token read and network call are in different files", "signals": ["env-sensitive-read"], "capabilities": ["env", "net"] }

@@ -89,3 +89,45 @@ Synthetic attack replays (inert, using `.invalid` domains):
 2. `replay-token-stealer`: enumerates env vars and POSTs them.
 3. `replay-obfuscated-patch`: a normal library plus one obfuscated file added.
 4. `replay-worm`: reads `.npmrc` and calls a publish-like HTTP PUT to a registry URL.
+
+## Implementation clarifications (M1.4)
+
+These fill gaps in the tables above. They were added while implementing M1.4 and are
+open for review.
+
+- **Signal shape.** `Signal` is `{ id, severity, message, evidence[] }`, using core's
+  `Evidence`. `profileFindings(profile)` turns signals into `Finding`s. A signal is
+  emitted at most once per file (package-level ones once per package), with at most 10
+  evidence entries plus an "and N more" entry.
+- **File kinds.** `FileSummary.kind` is `js | json | source | native | wasm | other`.
+  `source` means TypeScript/JSX (skipped, counted in `stats.skipped` instead of an
+  "info-level note"). `.d.ts` files are `other`. Extensionless files with a `node`
+  shebang are `js`. `FileSummary.bundled` marks bundler output (webpack, esbuild,
+  browserify, parcel runtime markers).
+- **Scope.** Bindings are tracked per file, not per lexical scope: the first binding of a
+  name wins. A global (`fetch`, `eval`, `Function`, `WebSocket`, …) is only treated as the
+  global when the file declares no variable, function, parameter, or import with that
+  name. `require` is always `require`, because bundles pass it as a parameter.
+- **`net`** also covers well-known HTTP client packages (`axios`, `node-fetch`, `got`,
+  `undici`, `ws`, …). Otherwise a token stealer that uses `axios` would avoid
+  `env-exfil-pattern`.
+- **`native_addon`** also covers `@mapbox/node-pre-gyp`, `node-gyp-build-optional-packages`,
+  and `require()` of a relative `.node` path.
+- **`os_info`**: the `os` module always counts. `process.platform`/`process.arch` count
+  only in a file that also has a `net` use.
+- **`dynamic_code`** also covers `.constructor("…")` calls with a string argument (the
+  `[].filter.constructor` trick).
+- **`install-script`**: a root `binding.gyp` with no `install`/`preinstall` script
+  implies `install: node-gyp rebuild`, as npm does.
+- **`install-script-network`**: "a `.js` file that uses `net`" follows the file's relative
+  imports transitively, up to 500 files.
+- **`env-exfil-pattern`**: "makes a `net` call" means the file has any `net` capability use.
+- **`endpoints`** holds normalized URLs (`scheme://host[:port]/path`, query dropped),
+  hosts, or IPs. The exclusion list for `hardcoded-endpoint` (and for `endpoints`) is in
+  `docs/findings.md`. `.invalid` hosts are kept, because fixtures use them.
+- **`obfuscation` escape density** counts only escapes that decode to printable ASCII, so
+  Unicode data tables are not flagged. Thresholds are in `docs/findings.md`.
+- **Unparsed files** get no further analysis (no regex fallback).
+- **Fixture `expected.json`** lists the exact set of signal IDs and non-empty
+  capabilities, plus optional `envKeys`, `endpoints`, `scripts`, `files`, `stats`,
+  `signalCounts`, `severityAtLeast`, and `options`.

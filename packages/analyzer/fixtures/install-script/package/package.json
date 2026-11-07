@@ -1,0 +1,1 @@
+{ "name": "fx-install-script", "version": "1.0.0", "scripts": { "preinstall": "echo preparing", "postinstall": "node-gyp rebuild", "prepare": "tsc", "test": "vitest" } }

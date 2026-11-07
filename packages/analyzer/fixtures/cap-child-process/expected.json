@@ -1,0 +1,1 @@
+{ "description": "destructured exec and a namespace import", "signals": [], "capabilities": ["child_process"] }

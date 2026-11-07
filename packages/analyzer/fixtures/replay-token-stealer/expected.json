@@ -1,0 +1,13 @@
+{
+  "description": "JSON.stringify(process.env) POSTed with fetch",
+  "signals": [
+    "env-exfil-pattern",
+    "env-sensitive-read",
+    "hardcoded-endpoint"
+  ],
+  "capabilities": [
+    "env",
+    "net"
+  ],
+  "severityAtLeast": "critical"
+}

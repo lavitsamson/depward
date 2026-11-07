@@ -4,5 +4,7 @@ coverage/
 *.tgz
 # Test fixtures are synthetic, inert tarballs and must be committed.
 !fixtures/**/*.tgz
+# Fixture packages ship their own dist/ folders.
+!**/fixtures/**/dist/
 *.log
 .DS_Store

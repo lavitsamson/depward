@@ -1,0 +1,10 @@
+{
+  "description": "the same kind of file under the default 5 MB limit is analyzed",
+  "signals": [],
+  "capabilities": [],
+  "stats": {
+    "jsFiles": 1,
+    "parsed": 1,
+    "unparsed": 0
+  }
+}

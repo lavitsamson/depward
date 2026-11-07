@@ -1,0 +1,8 @@
+{
+  "description": "decoded blob never reaches eval/vm/write (the blob is still high-entropy, and the file reads as minified)",
+  "signals": [
+    "high-entropy-string",
+    "minified-only"
+  ],
+  "capabilities": []
+}

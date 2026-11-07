@@ -1,0 +1,10 @@
+{
+  "description": "modern ESM and sloppy-mode script both parse",
+  "signals": [],
+  "capabilities": [],
+  "stats": {
+    "jsFiles": 2,
+    "parsed": 2,
+    "unparsed": 0
+  }
+}

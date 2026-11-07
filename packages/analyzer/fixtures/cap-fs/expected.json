@@ -1,0 +1,1 @@
+{ "description": "fs via require and node:fs/promises import", "signals": [], "capabilities": ["fs"] }

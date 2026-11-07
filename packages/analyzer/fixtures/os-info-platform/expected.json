@@ -1,0 +1,2 @@
+{ "description": "process.platform/arch only count as os_info alongside net", "signals": ["hardcoded-endpoint"], "capabilities": ["net", "os_info"],
+  "endpoints": ["https://telemetry.example.invalid"] }

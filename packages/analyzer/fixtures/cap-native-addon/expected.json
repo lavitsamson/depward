@@ -1,0 +1,2 @@
+{ "description": "node-gyp-build loader and a .node file with an ELF header", "signals": ["native-binary"], "capabilities": ["native_addon"],
+  "files": { "prebuilds/linux-x64/addon.node": { "kind": "native" } } }

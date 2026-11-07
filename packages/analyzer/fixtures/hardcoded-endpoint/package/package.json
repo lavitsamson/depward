@@ -1,0 +1,1 @@
+{ "name": "fx-hardcoded-endpoint", "version": "1.0.0", "homepage": "https://docs.example.invalid", "repository": { "type": "git", "url": "git+https://git.example.invalid/x.git" } }

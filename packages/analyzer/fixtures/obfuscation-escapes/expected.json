@@ -1,0 +1,7 @@
+{
+  "description": "string literals written entirely as \\x escapes of ASCII",
+  "signals": [
+    "obfuscation"
+  ],
+  "capabilities": []
+}

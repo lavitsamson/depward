@@ -67,9 +67,9 @@ passes in CI on all three operating systems.
       shell
 
 ### M1.4 Analyzer (`@depward/analyzer`)
-- [ ] File classification: JS, JSON, native binaries, minified or bundled code, other
-- [ ] Every rule in `docs/specs/analyzer.md`, each with positive and negative fixtures
-- [ ] `analyzePackage(tarball) → PackageProfile`. Target: under 300 ms for a typical
+- [x] File classification: JS, JSON, native binaries, minified or bundled code, other
+- [x] Every rule in `docs/specs/analyzer.md`, each with positive and negative fixtures
+- [x] `analyzePackage(tarball) → PackageProfile`. Target: under 300 ms for a typical
       package (under 1 MB unpacked)
 
 ### M1.5 Reporters

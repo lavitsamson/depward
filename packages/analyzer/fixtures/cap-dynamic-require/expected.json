@@ -1,0 +1,1 @@
+{ "description": "require(var), import(var), module.require, createRequire; alias r('net') resolves to net", "signals": [], "capabilities": ["dynamic_require", "net"] }

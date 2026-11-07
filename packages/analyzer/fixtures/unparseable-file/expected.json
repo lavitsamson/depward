@@ -1,0 +1,24 @@
+{
+  "description": "broken .js is unparseable; .ts/.jsx are skipped silently; .d.ts is other",
+  "signals": [
+    "unparseable-file"
+  ],
+  "capabilities": [],
+  "stats": {
+    "jsFiles": 1,
+    "parsed": 0,
+    "unparsed": 1,
+    "skipped": 2
+  },
+  "files": {
+    "src/app.ts": {
+      "kind": "source"
+    },
+    "src/view.jsx": {
+      "kind": "source"
+    },
+    "types/index.d.ts": {
+      "kind": "other"
+    }
+  }
+}

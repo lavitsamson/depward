@@ -16,6 +16,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 import { createMemoryCache } from "./cache.ts";
 import { createRegistryClient, type RegistryClient, type RegistryClientOptions } from "./registry/client.ts";
 import { NPM_REGISTRY } from "./registry/npmrc.ts";
@@ -98,4 +99,62 @@ export function createFixtureRegistryClient(
     fetch: fx.fetch,
   });
   return Object.assign(client, { requests: fx.requests });
+}
+
+/** A file for {@link packTarball}. */
+export interface PackEntry {
+  /** Package-relative path, e.g. `lib/index.js`. */
+  path: string;
+  data: Uint8Array | string;
+  /** Default `0o644`. */
+  mode?: number;
+}
+
+/**
+ * Packs files into a gzip'd npm-style tarball (every path under `package/`), in memory.
+ * Paths longer than the ustar name field get a pax `path` record. For tests only.
+ */
+export function packTarball(entries: readonly PackEntry[]): Uint8Array {
+  const enc = new TextEncoder();
+  const parts: Uint8Array[] = [];
+  const push = (name: string, type: string, data: Uint8Array, mode: number): void => {
+    parts.push(tarHeader(enc, name, type, data.byteLength, mode), data, new Uint8Array((512 - (data.byteLength % 512)) % 512));
+  };
+  for (const e of entries) {
+    const data = typeof e.data === "string" ? enc.encode(e.data) : e.data;
+    const name = `package/${e.path}`;
+    if (enc.encode(name).byteLength > 99) push("PaxHeader", "x", enc.encode(paxRecord("path", name)), 0o644);
+    push(name.slice(0, 99), "0", data, e.mode ?? 0o644);
+  }
+  parts.push(new Uint8Array(1024));
+  return new Uint8Array(gzipSync(Buffer.concat(parts)));
+}
+
+function paxRecord(key: string, value: string): string {
+  const body = ` ${key}=${value}\n`;
+  const bodyLen = Buffer.byteLength(body);
+  let len = bodyLen + 1;
+  while (`${len}`.length + bodyLen !== len) len++;
+  return `${len}${body}`;
+}
+
+function tarHeader(enc: { encode(s: string): Uint8Array }, name: string, type: string, size: number, mode: number): Uint8Array {
+  const h = new Uint8Array(512);
+  const put = (offset: number, length: number, value: string): void => h.set(enc.encode(value).subarray(0, length), offset);
+  const octal = (offset: number, length: number, value: number): void =>
+    put(offset, length, `${value.toString(8).padStart(length - 1, "0")}\0`);
+  put(0, 100, name);
+  octal(100, 8, mode);
+  octal(108, 8, 0);
+  octal(116, 8, 0);
+  octal(124, 12, size);
+  octal(136, 12, 1_577_836_800);
+  h.fill(0x20, 148, 156);
+  put(156, 1, type);
+  put(257, 6, "ustar\0");
+  put(263, 2, "00");
+  let sum = 0;
+  for (const b of h) sum += b;
+  put(148, 8, `${sum.toString(8).padStart(6, "0")}\0 `);
+  return h;
 }

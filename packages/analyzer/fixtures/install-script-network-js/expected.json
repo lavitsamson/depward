@@ -1,0 +1,1 @@
+{ "description": "install runs a local file whose import uses https", "signals": ["hardcoded-endpoint", "install-script", "install-script-network"], "capabilities": ["net"] }

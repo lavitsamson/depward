@@ -1,0 +1,15 @@
+{
+  "description": "a JS file over maxFileBytes is skipped",
+  "options": {
+    "maxFileBytes": 1000
+  },
+  "signals": [
+    "oversized-file"
+  ],
+  "capabilities": [],
+  "stats": {
+    "jsFiles": 2,
+    "parsed": 1,
+    "unparsed": 1
+  }
+}

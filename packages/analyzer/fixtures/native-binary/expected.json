@@ -1,0 +1,21 @@
+{
+  "description": "wasm module and a PE header (inert); text starting with MZ is not native",
+  "signals": [
+    "native-binary"
+  ],
+  "capabilities": [],
+  "files": {
+    "lib/mod.wasm": {
+      "kind": "wasm"
+    },
+    "bin/tool.exe": {
+      "kind": "native"
+    },
+    "notes.txt": {
+      "kind": "other"
+    }
+  },
+  "signalCounts": {
+    "native-binary": 2
+  }
+}

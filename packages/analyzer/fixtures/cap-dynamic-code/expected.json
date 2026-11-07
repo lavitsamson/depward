@@ -1,0 +1,1 @@
+{ "description": "eval, new Function, string setTimeout, vm", "signals": [], "capabilities": ["dynamic_code"] }

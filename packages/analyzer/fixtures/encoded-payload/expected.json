@@ -1,0 +1,11 @@
+{
+  "description": "large base64 literal decoded and passed to eval (via variables); the one-line blob also reads as high-entropy and minified",
+  "signals": [
+    "encoded-payload",
+    "high-entropy-string",
+    "minified-only"
+  ],
+  "capabilities": [
+    "dynamic_code"
+  ]
+}

@@ -61,6 +61,7 @@ with its `source` (`registry`, `git`, `tarball`, `file`, `link`, `workspace`, `b
 ## Testing
 
 `@depward/core/testing` exports `createFixtureRegistryClient(dir)`, an offline client
-that serves recorded responses. See [`fixtures/registry/`](../../fixtures/registry/README.md).
+that serves recorded responses. `packTarball(entries)` builds an npm-style tarball in
+memory, for tests that need one. See [`fixtures/registry/`](../../fixtures/registry/README.md).
 
 Requires Node.js >= 22.15. ESM only. MIT licensed.

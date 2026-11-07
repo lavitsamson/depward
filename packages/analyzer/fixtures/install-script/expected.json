@@ -1,0 +1,1 @@
+{ "description": "preinstall and postinstall without network use", "signals": ["install-script"], "capabilities": [] }

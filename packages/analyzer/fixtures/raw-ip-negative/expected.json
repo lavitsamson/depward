@@ -1,0 +1,12 @@
+{
+  "description": "IP not used in a network call; loopback connect",
+  "signals": [
+    "hardcoded-endpoint"
+  ],
+  "capabilities": [
+    "net"
+  ],
+  "endpoints": [
+    "203.0.113.53"
+  ]
+}
