@@ -53,3 +53,26 @@ export {
   type ParseLockfileOptions,
 } from "./lockfile/types.ts";
 export { readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";
+export {
+  REPORT_FORMATS,
+  JSON_REPORT_VERSION,
+  colorEnabled,
+  countBySeverity,
+  escapeMarkdown,
+  escapeUnsafe,
+  renderJson,
+  renderMarkdown,
+  renderReport,
+  renderSarif,
+  renderTerminal,
+  sortFindings,
+  summaryText,
+  type JsonOptions,
+  type MarkdownOptions,
+  type ReportFormat,
+  type ReportOptions,
+  type SarifLocation,
+  type SarifOptions,
+  type TerminalOptions,
+  type ToolInfo,
+} from "./report/index.ts";

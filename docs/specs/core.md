@@ -118,3 +118,33 @@ JSON only, to avoid a dependency. Shape:
   "registry": "https://registry.npmjs.org"
 }
 ```
+
+## Reporters (M1.5)
+
+Pure functions from `Finding[]` to a string that ends with a newline. Each one sorts its
+input (`sortFindings`: severity, package, id, then version, message, and first evidence
+location), so output never depends on input order. `renderReport(format, findings, opts)`
+dispatches on `terminal | json | markdown | sarif`.
+
+- **Terminal** (`renderTerminal`): a summary line, then one block per finding (severity,
+  id, `name@version`, message, evidence, docs URL). Color is opt-in through
+  `colorEnabled(env, isTTY)`: `NO_COLOR` (non-empty) turns it off, `FORCE_COLOR` turns it
+  on (`0`/`false` turn it off), `TERM=dumb` turns it off; otherwise color only on a TTY.
+- **JSON** (`renderJson`): `{ reportVersion: 1, tool, summary: { total, critical, high,
+  medium, low, info }, findings }` with keys in a fixed order. No escaping beyond JSON's.
+- **Markdown** (`renderMarkdown`): the table and `<details>` shape from `diff.md`, one
+  section per package, expanded when its worst finding is `high` or above.
+- **SARIF 2.1.0** (`renderSarif`): one run. Rules are the distinct finding IDs, tagged
+  `security`, with `security-severity` critical 9.5, high 8.0, medium 5.5, low 3.0, and
+  none for info. Levels: critical/high → `error`, medium → `warning`, low/info → `note`.
+  Every result has one location from `opts.locate(finding)` (default `package.json`,
+  line 1; lockfile mode should point at the lockfile) and a
+  `partialFingerprints.primaryLocationLineHash` derived from (id, package, version).
+  Validated against the official OASIS schema (`fixtures/schemas/`) in tests.
+
+**Untrusted text.** Terminal, Markdown, and SARIF output pass every package-controlled
+string through `escapeUnsafe`, which turns C0/C1 controls (so ANSI escapes), zero-width
+and bidi characters, and line separators into visible escapes (`\x1b`, `‮`), and caps
+snippets at 200 characters. Markdown additionally entity-encodes `& < > " '`,
+backslash-escapes `` \ ` * _ [ ] # | ~ : ``, puts names and snippets in `<code>`, adds a
+zero-width space after `@` (no mentions), and only links docs URLs that are `https:`.

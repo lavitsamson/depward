@@ -73,7 +73,7 @@ passes in CI on all three operating systems.
       package (under 1 MB unpacked)
 
 ### M1.5 Reporters
-- [ ] Terminal (with color and a `NO_COLOR` fallback), JSON, Markdown, SARIF 2.1.0
+- [x] Terminal (with color and a `NO_COLOR` fallback), JSON, Markdown, SARIF 2.1.0
 
 **Definition of done:** `analyzePackage` produces a correct profile for 30 synthetic
 fixtures and for 20 real popular packages (in a live test). No popular package

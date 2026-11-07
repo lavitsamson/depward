@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "depward",
+          "informationUri": "https://github.com/lavitsamson/depward",
+          "version": "0.1.0",
+          "semanticVersion": "0.1.0",
+          "rules": [
+            {
+              "id": "env-exfil-pattern",
+              "name": "env-exfil-pattern",
+              "shortDescription": {
+                "text": "reads sensitive environment variables and uses the network in the same file"
+              },
+              "fullDescription": {
+                "text": "reads sensitive environment variables and uses the network in the same file. See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#env-exfil-pattern"
+              },
+              "help": {
+                "text": "See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#env-exfil-pattern",
+                "markdown": "See the [finding catalog](https://github.com/lavitsamson/depward/blob/main/docs/findings.md#env-exfil-pattern)."
+              },
+              "helpUri": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#env-exfil-pattern",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "supply-chain"
+                ],
+                "precision": "medium",
+                "security-severity": "9.5"
+              }
+            },
+            {
+              "id": "fs-sensitive-path",
+              "name": "fs-sensitive-path",
+              "shortDescription": {
+                "text": "references \\x1b[2Kcredential\\x1b[31m locations"
+              },
+              "fullDescription": {
+                "text": "references \\x1b[2Kcredential\\x1b[31m locations. See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#fs-sensitive-path"
+              },
+              "help": {
+                "text": "See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#fs-sensitive-path",
+                "markdown": "See the [finding catalog](https://github.com/lavitsamson/depward/blob/main/docs/findings.md#fs-sensitive-path)."
+              },
+              "helpUri": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#fs-sensitive-path",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "supply-chain"
+                ],
+                "precision": "medium",
+                "security-severity": "8.0"
+              }
+            },
+            {
+              "id": "hardcoded-endpoint",
+              "name": "hardcoded-endpoint",
+              "shortDescription": {
+                "text": "contains hardcoded network endpoints"
+              },
+              "fullDescription": {
+                "text": "contains hardcoded network endpoints. See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#hardcoded-endpoint"
+              },
+              "help": {
+                "text": "See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#hardcoded-endpoint",
+                "markdown": "See the [finding catalog](https://github.com/lavitsamson/depward/blob/main/docs/findings.md#hardcoded-endpoint)."
+              },
+              "helpUri": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#hardcoded-endpoint",
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "supply-chain"
+                ],
+                "precision": "medium"
+              }
+            },
+            {
+              "id": "install-script",
+              "name": "install-script",
+              "shortDescription": {
+                "text": "runs install scripts (install)"
+              },
+              "fullDescription": {
+                "text": "runs install scripts (install). See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#install-script"
+              },
+              "help": {
+                "text": "See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#install-script",
+                "markdown": "See the [finding catalog](https://github.com/lavitsamson/depward/blob/main/docs/findings.md#install-script)."
+              },
+              "helpUri": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#install-script",
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "supply-chain"
+                ],
+                "precision": "medium",
+                "security-severity": "5.5"
+              }
+            },
+            {
+              "id": "minified-only",
+              "name": "minified-only",
+              "shortDescription": {
+                "text": "ships only minified code"
+              },
+              "fullDescription": {
+                "text": "ships only minified code. See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#minified-only"
+              },
+              "help": {
+                "text": "See https://github.com/lavitsamson/depward/blob/main/docs/findings.md#minified-only",
+                "markdown": "See the [finding catalog](https://github.com/lavitsamson/depward/blob/main/docs/findings.md#minified-only)."
+              },
+              "helpUri": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#minified-only",
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "supply-chain"
+                ],
+                "precision": "medium"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "env-exfil-pattern",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "evil-pkg@1.0.1: reads sensitive environment variables and uses the network in the same file.\n- index.js:2 enumerates process.env (JSON.stringify(process.env))\n- index.js:3 network: fetch"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "92cfff77c6c7cbb2:1"
+          },
+          "properties": {
+            "severity": "critical",
+            "package": "evil-pkg",
+            "version": "1.0.1"
+          }
+        },
+        {
+          "ruleId": "fs-sensitive-path",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "evil-pkg@1.0.1: references \\x1b[2Kcredential\\x1b[31m locations.\n- lib/\\u202etxt.js:7 \"~/.ssh/id_rsa | <script>alert(1)</script> `x` @octocat [a](https://x.example.invalid)\" SSH keys\\x0asecond line"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "aa7228300b0431f8:1"
+          },
+          "properties": {
+            "severity": "high",
+            "package": "evil-pkg",
+            "version": "1.0.1"
+          }
+        },
+        {
+          "ruleId": "install-script",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "@scope/native@2.0.0: runs install scripts (install).\n- package.json \"node-gyp rebuild\" install"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "d99201c940e69132:1"
+          },
+          "properties": {
+            "severity": "medium",
+            "package": "@scope/native",
+            "version": "2.0.0"
+          }
+        },
+        {
+          "ruleId": "hardcoded-endpoint",
+          "ruleIndex": 2,
+          "level": "note",
+          "message": {
+            "text": "evil-pkg@1.0.1: contains hardcoded network endpoints.\n- index.js:3 \"https://collect.example.invalid/e\""
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "f08ec0e973313830:1"
+          },
+          "properties": {
+            "severity": "info",
+            "package": "evil-pkg",
+            "version": "1.0.1"
+          }
+        },
+        {
+          "ruleId": "minified-only",
+          "ruleIndex": 4,
+          "level": "note",
+          "message": {
+            "text": "plain: ships only minified code.\n- 2 JS file(s), all minified"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "22564fdc2e854b39:1"
+          },
+          "properties": {
+            "severity": "info",
+            "package": "plain"
+          }
+        }
+      ]
+    }
+  ]
+}
