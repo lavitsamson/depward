@@ -1,0 +1,17 @@
+{
+  "description": "env copied into a child process env plus an unrelated download: env-sensitive-read (spread), not env-exfil-pattern",
+  "signals": [
+    "env-sensitive-read",
+    "hardcoded-endpoint",
+    "install-script",
+    "install-script-network"
+  ],
+  "capabilities": [
+    "net",
+    "child_process",
+    "env"
+  ],
+  "envKeys": [
+    "npm_config_user_agent"
+  ]
+}

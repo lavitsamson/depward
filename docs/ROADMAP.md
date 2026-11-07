@@ -79,6 +79,9 @@ passes in CI on all three operating systems.
 fixtures and for 20 real popular packages (in a live test). No popular package
 gets a `critical` finding unless that is clearly correct, and each one is reviewed.
 
+**Status:** met on 2026-11-07. 53 synthetic fixtures; 20 popular packages with no criticals.
+Review: `docs/benchmarks.md` § Phase 1. Live test: `test/live/popular-packages.test.ts`.
+
 ---
 
 ## Phase 2 — `@depward/gate`: admission control for agents (idea #2) → release 0.1

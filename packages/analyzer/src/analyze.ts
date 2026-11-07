@@ -123,13 +123,7 @@ export function analyzePackage(pkgFiles: PackageFiles, opts: AnalyzeOptions = {}
 function fileSignals(file: string, f: FileFacts, add: (id: SignalId, message: string, evidence: Evidence[]) => void): void {
   const ev = (hits: Hit[]): Evidence[] => hits.map((h) => withoutUndefined({ file, line: h.line, snippet: h.snippet, detail: h.detail }));
   add("env-sensitive-read", "reads sensitive environment variables", ev(f.envSensitive));
-  if (f.envSensitive.length > 0 && f.uses.some((u) => u.cap === "net")) {
-    const net = f.uses.find((u) => u.cap === "net");
-    add("env-exfil-pattern", "reads sensitive environment variables and uses the network in the same file", [
-      ...ev(f.envSensitive),
-      { file, line: net?.line ?? 0, detail: `network: ${net?.evidence ?? "net"}` },
-    ]);
-  }
+  add("env-exfil-pattern", "sends sensitive environment variables over the network", ev(f.envExfil));
   add("fs-sensitive-path", "references credential, browser-profile, or wallet locations", ev(f.sensitivePaths));
   add("obfuscation", "code looks obfuscated", f.obfuscation.map((detail) => ({ file, detail })));
   add("encoded-payload", "decodes a large encoded literal and executes or writes it", ev(f.encodedPayloads));
