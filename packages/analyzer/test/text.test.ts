@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { clean, countAsciiEscapes, findEndpoints, isEncodedBlob, isIgnoredHost, sensitivePath, SENSITIVE_ENV_KEY, shannonEntropy } from "../src/text.ts";
+import { clean, countAsciiEscapes, findEndpoints, isEncodedBlob, isIgnoredHost, isSensitiveEnvKey, sensitivePath, shannonEntropy } from "../src/text.ts";
 
 describe("clean", () => {
   test("strips ANSI escapes and control characters", () => {
@@ -23,12 +23,12 @@ describe("shannonEntropy", () => {
   });
 });
 
-describe("SENSITIVE_ENV_KEY", () => {
-  test.each(["NPM_TOKEN", "AWS_SECRET_ACCESS_KEY", "GITHUB_TOKEN", "GH_PAT", "CI_JOB_TOKEN", "db_password", "API_KEY"])("%s is sensitive", (k) => {
-    expect(SENSITIVE_ENV_KEY.test(k)).toBe(true);
+describe("isSensitiveEnvKey", () => {
+  test.each(["NPM_TOKEN", "AWS_SECRET_ACCESS_KEY", "AWS_PROFILE", "GITHUB_TOKEN", "GH_PAT", "CI_JOB_TOKEN", "db_password", "API_KEY", "npm_config__authToken", "npm_config_//registry.npmjs.org/:_authToken"])("%s is sensitive", (k) => {
+    expect(isSensitiveEnvKey(k)).toBe(true);
   });
-  test.each(["NODE_ENV", "HOME", "PORT", "DEBUG", "PATH"])("%s is not", (k) => {
-    expect(SENSITIVE_ENV_KEY.test(k)).toBe(false);
+  test.each(["NODE_ENV", "HOME", "PORT", "DEBUG", "PATH", "npm_config_user_agent", "npm_package_config_libvips", "HIGH_WATER", "CHUNKS_NPM_DIR"])("%s is not", (k) => {
+    expect(isSensitiveEnvKey(k)).toBe(false);
   });
 });
 

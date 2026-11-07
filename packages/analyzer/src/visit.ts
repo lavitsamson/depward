@@ -15,9 +15,10 @@ import {
   unwrap,
   type FileScope,
 } from "./bindings.ts";
-import { clean, countAsciiEscapes, findEndpoints, isEncodedBlob, sensitivePath, SENSITIVE_ENV_KEY, shannonEntropy, type FoundEndpoint } from "./text.ts";
+import { clean, countAsciiEscapes, findEndpoints, isEncodedBlob, isSensitiveEnvKey, sensitivePath, shannonEntropy, type FoundEndpoint } from "./text.ts";
 import type { Capability } from "./types.ts";
-import { calleeName, contains, identifiersIn, isFunction, lineOf, propNameOf, shallow, stringish } from "./ast.ts";
+import { callsNetObject, isNetCallNode, reaches, valueFlow, type FlowEdge } from "./flow.ts";
+import { calleeName, contains, identifiersIn, isFunction, lineOf, propNameOf, rootIdentifier, shallow, stringish } from "./ast.ts";
 import {
   BINDING_CAPS,
   DECODE_ENCODINGS,
@@ -28,7 +29,6 @@ import {
   HTTP_CLIENTS,
   MODULE_CAPS,
   NATIVE_LOADERS,
-  NET_MODULES,
   WRITE_FNS,
 } from "./tables.ts";
 
@@ -46,6 +46,8 @@ export interface FileFacts {
   uses: { cap: Capability; line: number; evidence: string }[];
   envKeys: string[];
   envSensitive: Hit[];
+  /** Sensitive env values that flow into a network call (env-exfil-pattern). */
+  envExfil: Hit[];
   sensitivePaths: Hit[];
   endpoints: (FoundEndpoint & { line: number })[];
   rawIp: Hit[];
@@ -67,7 +69,7 @@ export function analyzeProgram(program: acorn.Program): FileFacts {
 class Visitor {
   readonly scope: FileScope;
   readonly facts: FileFacts = {
-    uses: [], envKeys: [], envSensitive: [], sensitivePaths: [], endpoints: [], rawIp: [],
+    uses: [], envKeys: [], envSensitive: [], envExfil: [], sensitivePaths: [], endpoints: [], rawIp: [],
     obfuscation: [], encodedPayloads: [], highEntropy: [], localImports: [],
   };
   private ids = 0;
@@ -79,7 +81,12 @@ class Visitor {
   private readonly parseIntFns = new Set<Node>();
   private readonly decodes: { line: number; inSink: boolean; taint?: string; snippet: string }[] = [];
   private readonly sinks: Set<string>[] = [];
-  private readonly edges: { to: string; from: Set<string> }[] = [];
+  private readonly edges: FlowEdge[] = [];
+  // env-exfil-pattern: sensitive env values, network call arguments, and network objects.
+  private readonly envSources: { line: number; detail: string; direct: boolean; viaObjects: string[]; taint?: string }[] = [];
+  private readonly netSinks: Set<string>[] = [];
+  private readonly netObjects = new Set<string>();
+  private readonly objectCalls: { obj: string; idents: Set<string> }[] = [];
 
   constructor(scope: FileScope) {
     this.scope = scope;
@@ -126,14 +133,19 @@ class Visitor {
         for (const q of node.quasis) this.string(q.value.cooked ?? "", q.value.raw, q, parent, node);
         return;
       case "VariableDeclarator":
-        if (node.id.type === "Identifier" && node.init) this.edges.push({ to: node.id.name, from: identifiersIn([node.init]) });
+        if (node.id.type === "Identifier" && node.init) this.assigned(node.id.name, node.init);
         return;
       case "AssignmentExpression":
-        if (node.left.type === "Identifier") this.edges.push({ to: node.left.name, from: identifiersIn([node.right]) });
+        if (node.left.type === "Identifier") this.assigned(node.left.name, node.right);
         return;
       default:
         return;
     }
+  }
+
+  private assigned(name: string, value: Node): void {
+    this.edges.push({ to: name, from: identifiersIn([value]) });
+    if (this.isNetCallNode(unwrap(value))) this.netObjects.add(name);
   }
 
   private identifier(node: acorn.Identifier, anc: Node[], parent: Node | undefined, type: string): void {
@@ -192,7 +204,13 @@ class Visitor {
     }
     if (name === "parseInt") for (const a of anc) if (isFunction(a)) this.parseIntFns.add(a);
     this.rotation(node, callee, args, anc);
-    if (this.isNetCall(callee, name, isNew, mod)) this.rawIps(node, args);
+    const isNet = this.isNetCallNode(node);
+    if (isNet) this.rawIps(node, args);
+    if (isNet || this.callsNetObject(callee)) this.netSinks.push(identifiersIn(args));
+    else if (callee.type === "MemberExpression") {
+      const root = rootIdentifier(callee);
+      if (root !== undefined) this.objectCalls.push({ obj: root, idents: identifiersIn(args) });
+    }
     this.decode(node, name, args, anc);
     if (this.isSink(node)) this.sinks.push(identifiersIn(args));
   }
@@ -222,39 +240,52 @@ class Visitor {
       const written =
         (grand?.type === "AssignmentExpression" && grand.left === parent) ||
         (grand?.type === "UnaryExpression" && grand.operator === "delete");
-      return written ? this.use("env", parent, `${label}.${key} (write)`) : this.envRead(key, parent);
+      return written ? this.use("env", parent, `${label}.${key} (write)`) : this.envRead(key, parent, anc.slice(0, -1));
     }
     if (parent?.type === "VariableDeclarator" && parent.init === node && parent.id.type === "ObjectPattern") return this.envPattern(parent.id);
     if (parent?.type === "AssignmentExpression" && parent.right === node && parent.left.type === "ObjectPattern") return this.envPattern(parent.left);
-    if (parent?.type === "SpreadElement") return this.enumerate(node, `...${label}`);
-    if (parent?.type === "ForInStatement" && parent.right === node) return this.enumerate(node, `for…in ${label}`);
+    if (parent?.type === "SpreadElement") return this.enumerate(node, `...${label}`, anc);
+    if (parent?.type === "ForInStatement" && parent.right === node) return this.enumerate(node, `for…in ${label}`, anc);
     if (parent?.type === "CallExpression" && parent.arguments.includes(node as acorn.Expression)) {
       const fn = calleeName(unwrap(parent.callee as Node));
-      if (fn !== undefined && ENUMERATORS.has(fn)) return this.enumerate(node, `${fn}(${label})`);
+      if (fn !== undefined && ENUMERATORS.has(fn)) return this.enumerate(node, `${fn}(${label})`, anc);
     }
     if (label === "process.env") this.use("env", node, label);
   }
 
-  private envRead(key: string, node: acorn.Node): void {
+  /** `anc` ends with `node` for expression reads; destructuring passes `taint` (the target name) instead. */
+  private envRead(key: string, node: acorn.Node, anc?: Node[], taint?: string): void {
     this.facts.envKeys.push(key);
     this.use("env", node, `process.env.${key}`);
-    if (SENSITIVE_ENV_KEY.test(key)) this.facts.envSensitive.push({ line: lineOf(node), detail: clean(`reads process.env.${key}`, 100) });
+    if (isSensitiveEnvKey(key)) this.sensitive(node, clean(`reads process.env.${key}`, 100), anc, taint);
+  }
+
+  /** Records a sensitive env value and where it flows: into a network call, an object method, or a variable. */
+  private sensitive(node: acorn.Node, detail: string, anc: Node[] | undefined, taint?: string): void {
+    const line = lineOf(node);
+    this.facts.envSensitive.push({ line, detail });
+    const { direct, viaObjects, flow } = valueFlow(node, anc ?? [], this.scope);
+    const target = taint ?? flow;
+    this.envSources.push({ line, detail, direct, viaObjects, ...(target === undefined ? {} : { taint: target }) });
   }
 
   private envPattern(p: acorn.ObjectPattern): void {
     for (const prop of p.properties) {
-      if (prop.type === "RestElement") this.enumerate(prop, "rest destructuring of process.env");
+      if (prop.type === "RestElement") {
+        this.enumerate(prop, "rest destructuring of process.env", undefined, prop.argument.type === "Identifier" ? prop.argument.name : undefined);
+      }
       else {
         const key = prop.computed ? staticString(prop.key as Node, this.scope) : propNameOf(prop.key as Node);
-        if (key !== undefined) this.envRead(key, prop);
+        const target = prop.value.type === "AssignmentPattern" ? prop.value.left : prop.value;
+        if (key !== undefined) this.envRead(key, prop, undefined, target.type === "Identifier" ? target.name : undefined);
         else this.use("env", prop, "process.env[<expression>]");
       }
     }
   }
 
-  private enumerate(node: acorn.Node, how: string): void {
+  private enumerate(node: acorn.Node, how: string, anc?: Node[], taint?: string): void {
     this.use("env", node, how);
-    this.facts.envSensitive.push({ line: lineOf(node), detail: clean(`enumerates process.env (${how})`, 100) });
+    this.sensitive(node, clean(`enumerates process.env (${how})`, 100), anc, taint);
   }
 
   // --- strings ---------------------------------------------------------------------
@@ -277,11 +308,12 @@ class Visitor {
 
   // --- network calls -----------------------------------------------------------------
 
-  private isNetCall(callee: Node, name: string | undefined, isNew: boolean, mod: { module: string } | undefined): boolean {
-    if (mod && NET_MODULES.has(mod.module)) return true;
-    if (callee.type === "Identifier") return GLOBAL_NET.has(callee.name) && this.global(callee.name) && (isNew || callee.name === "fetch");
-    const [obj, prop] = (name ?? "").split(".");
-    return obj !== undefined && GLOBAL_OBJECTS.has(obj) && prop !== undefined && GLOBAL_NET.has(prop);
+  private isNetCallNode(n: Node): boolean {
+    return isNetCallNode(n, this.scope);
+  }
+
+  private callsNetObject(callee: Node): boolean {
+    return callsNetObject(callee, this.scope);
   }
 
   private rawIps(node: acorn.Node, args: Node[]): void {
@@ -355,9 +387,14 @@ class Visitor {
       f.obfuscation.push(`${this.escapes} \\x/\\u escapes of printable ASCII in string literals`);
     }
     for (const d of this.decodes) {
-      if (d.inSink || (d.taint !== undefined && this.reaches(d.taint))) {
+      if (d.inSink || (d.taint !== undefined && reaches(d.taint, this.edges, this.sinks))) {
         f.encodedPayloads.push({ line: d.line, snippet: d.snippet, detail: "decoded and passed to eval, Function, vm, or a write call" });
       }
+    }
+    const netSinks = [...this.netSinks, ...this.objectCalls.filter((c) => this.netObjects.has(c.obj)).map((c) => c.idents)];
+    for (const s of this.envSources) {
+      const flows = s.direct || s.viaObjects.some((o) => this.netObjects.has(o)) || (s.taint !== undefined && reaches(s.taint, this.edges, netSinks));
+      if (flows) f.envExfil.push({ line: s.line, detail: `${s.detail}, which flows into a network call` });
     }
     if (f.uses.some((u) => u.cap === "net")) {
       for (const line of this.platformLines) f.uses.push({ cap: "os_info", line, evidence: "process.platform/arch with net" });
@@ -365,19 +402,6 @@ class Visitor {
     return f;
   }
 
-  /** True when a value assigned to `name` flows (through variable assignments) into a sink. */
-  private reaches(name: string): boolean {
-    const tainted = new Set([name]);
-    for (let changed = true; changed; ) {
-      changed = false;
-      for (const e of this.edges) {
-        if (!tainted.has(e.to) && [...e.from].some((x) => tainted.has(x))) {
-          tainted.add(e.to);
-          changed = true;
-        }
-      }
-    }
-    return this.sinks.some((s) => [...s].some((x) => tainted.has(x)));
-  }
+
 }
 

@@ -121,7 +121,17 @@ open for review.
   implies `install: node-gyp rebuild`, as npm does.
 - **`install-script-network`**: "a `.js` file that uses `net`" follows the file's relative
   imports transitively, up to 500 files.
-- **`env-exfil-pattern`**: "makes a `net` call" means the file has any `net` capability use.
+- **`env-sensitive-read` key names** (changed after the Phase 1 live review, see
+  `docs/benchmarks.md`): the secret words `TOKEN|SECRET|KEY|PASSWORD` match in any case;
+  the vendor prefixes `NPM_|AWS_|GITHUB_|GH_|CI_JOB` match only uppercase, at the start of
+  the name. npm's lowercase `npm_config_*`/`npm_package_*` variables are configuration.
+- **`env-exfil-pattern`** (changed after the Phase 1 live review): instead of "same file",
+  the sensitive value must flow into a network call within the file: as part of its
+  arguments; through variable assignments into its arguments; or into a method call on an
+  object created by a network call (`req.write(v)`, `ws.send(v)`,
+  `https.request(o).end(v)`). Flow across function calls and returns is not tracked, so a
+  token read in one function and sent from another is not `critical` (it is still
+  `env-sensitive-read`, and Phase 3's diff flags a new env read plus new network use).
 - **`endpoints`** holds normalized URLs (`scheme://host[:port]/path`, query dropped),
   hosts, or IPs. The exclusion list for `hardcoded-endpoint` (and for `endpoints`) is in
   `docs/findings.md`. `.invalid` hosts are kept, because fixtures use them.

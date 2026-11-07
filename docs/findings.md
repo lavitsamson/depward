@@ -51,21 +51,24 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 - **Default severity:** high
 - **Emitted by:** `@depward/analyzer`
-- **Meaning:** code reads an environment variable whose name matches
-  `/TOKEN|SECRET|KEY|PASSWORD|NPM_|AWS_|GITHUB_|GH_|CI_JOB/i`, or enumerates the whole
+- **Meaning:** code reads an environment variable whose name contains `TOKEN`, `SECRET`,
+  `KEY`, or `PASSWORD` (any case) or starts with `NPM_`, `AWS_`, `GITHUB_`, `GH_`, or
+  `CI_JOB` (uppercase), or enumerates the whole
   environment (`Object.keys/values/entries/assign`, `JSON.stringify`, object spread, rest
   destructuring, or `for…in` over `process.env`).
 - **Fix:** check why the package needs the variable.
-- **False positives:** CI detection (`GITHUB_ACTIONS`), npm config reads
-  (`npm_config_*`), and child-process helpers that copy the environment with
-  `{ ...process.env }`. Passing `process.env` whole (`{ env: process.env }`) is not flagged.
+- **False positives:** CI detection (`GITHUB_ACTIONS`), config loaders that list the
+  environment (`debug`, `dotenv`), and child-process helpers that copy it with
+  `{ ...process.env }`. npm's lowercase `npm_config_*` variables do not match. Passing `process.env` whole (`{ env: process.env }`) is not flagged.
 
 ### env-exfil-pattern
 
 - **Default severity:** critical
 - **Emitted by:** `@depward/analyzer`
-- **Meaning:** one file both triggers `env-sensitive-read` and has a `net` capability:
-  the shape of a token stealer.
+- **Meaning:** a value from an `env-sensitive-read` flows into a network call in the same
+  file: directly in its arguments, through variables, or through a request/socket object
+  (`req.write`, `ws.send`). This is the shape of a token stealer. Flow through function
+  calls and returns is not followed.
 - **Fix:** treat as malicious until reviewed. Do not install.
 - **False positives:** SDKs that read their own API key from the environment and call
   their own API. Review the endpoint in the evidence.

@@ -52,3 +52,10 @@ export function stringish(n: Node | undefined): boolean {
   if (n.type === "TemplateLiteral") return true;
   return n.type === "BinaryExpression" && n.operator === "+" && (stringish(n.left as Node) || stringish(n.right));
 }
+
+/** The identifier at the root of a member chain (`req` in `req.socket.write`), if any. */
+export function rootIdentifier(n: Node): string | undefined {
+  let o: Node = n;
+  for (let depth = 0; depth < 20 && o.type === "MemberExpression"; depth++) o = o.object as Node;
+  return o.type === "Identifier" ? o.name : undefined;
+}

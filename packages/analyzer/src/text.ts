@@ -30,8 +30,17 @@ export function shannonEntropy(s: string): number {
   return h;
 }
 
-/** Sensitive env key names (spec: `env-sensitive-read`). */
-export const SENSITIVE_ENV_KEY: RegExp = /TOKEN|SECRET|KEY|PASSWORD|NPM_|AWS_|GITHUB_|GH_|CI_JOB/i;
+// The secret words match in any case. The vendor prefixes match only uppercase, at the
+// start of the name: npm injects lowercase `npm_config_*` / `npm_package_*` variables
+// that are configuration, not credentials (`npm_config__authToken` still matches TOKEN),
+// and an unanchored `GH_` would match names such as `HIGH_WATER`.
+const SECRET_WORD = /TOKEN|SECRET|KEY|PASSWORD/i;
+const VENDOR_PREFIX = /^(?:NPM_|AWS_|GITHUB_|GH_|CI_JOB)/;
+
+/** True for env var names that usually hold credentials (spec: `env-sensitive-read`). */
+export function isSensitiveEnvKey(key: string): boolean {
+  return SECRET_WORD.test(key) || VENDOR_PREFIX.test(key);
+}
 
 // Each rule is a sequence of path segments that must appear consecutively (case-insensitive).
 const SENSITIVE_PATHS: { what: string; segments: string[] }[] = [
