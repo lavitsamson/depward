@@ -58,6 +58,21 @@ Older formats and `bun.lockb` give an `unsupported-lockfile` finding. Each entry
 with its `source` (`registry`, `git`, `tarball`, `file`, `link`, `workspace`, `bundled`,
 `other`). `dev` and `optional` are `null` when the format doesn't record them.
 
+## Reporters
+
+```js
+import { colorEnabled, renderReport } from "@depward/core";
+
+const findings = [/* Finding objects, e.g. from @depward/analyzer's profileFindings() */];
+process.stdout.write(renderReport("terminal", findings, { color: colorEnabled(process.env, process.stdout.isTTY) }));
+// Also "json", "markdown" (PR comments), and "sarif" (GitHub code scanning):
+const sarif = renderReport("sarif", findings, { locate: () => ({ uri: "package-lock.json" }) });
+```
+
+Output is deterministic (sorted, fixed key order). Package-controlled text is escaped in
+terminal, Markdown, and SARIF output, so it cannot inject ANSI sequences, bidi tricks,
+HTML, links, or @-mentions. `NO_COLOR` and `FORCE_COLOR` are honoured.
+
 ## Testing
 
 `@depward/core/testing` exports `createFixtureRegistryClient(dir)`, an offline client

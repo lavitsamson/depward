@@ -1,0 +1,95 @@
+{
+  "reportVersion": 1,
+  "tool": {
+    "name": "depward",
+    "version": "0.1.0"
+  },
+  "summary": {
+    "total": 5,
+    "critical": 1,
+    "high": 1,
+    "medium": 1,
+    "low": 0,
+    "info": 2
+  },
+  "findings": [
+    {
+      "id": "env-exfil-pattern",
+      "severity": "critical",
+      "package": "evil-pkg",
+      "version": "1.0.1",
+      "message": "reads sensitive environment variables and uses the network in the same file",
+      "evidence": [
+        {
+          "file": "index.js",
+          "line": 2,
+          "detail": "enumerates process.env (JSON.stringify(process.env))"
+        },
+        {
+          "file": "index.js",
+          "line": 3,
+          "detail": "network: fetch"
+        }
+      ],
+      "docsUrl": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#env-exfil-pattern"
+    },
+    {
+      "id": "fs-sensitive-path",
+      "severity": "high",
+      "package": "evil-pkg",
+      "version": "1.0.1",
+      "message": "references \u001b[2Kcredential\u001b[31m locations",
+      "evidence": [
+        {
+          "file": "lib/‮txt.js",
+          "line": 7,
+          "snippet": "~/.ssh/id_rsa | <script>alert(1)</script> `x` @octocat [a](https://x.example.invalid)",
+          "detail": "SSH keys\nsecond line"
+        }
+      ],
+      "docsUrl": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#fs-sensitive-path"
+    },
+    {
+      "id": "install-script",
+      "severity": "medium",
+      "package": "@scope/native",
+      "version": "2.0.0",
+      "message": "runs install scripts (install)",
+      "evidence": [
+        {
+          "file": "package.json",
+          "snippet": "node-gyp rebuild",
+          "detail": "install"
+        }
+      ],
+      "docsUrl": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#install-script"
+    },
+    {
+      "id": "hardcoded-endpoint",
+      "severity": "info",
+      "package": "evil-pkg",
+      "version": "1.0.1",
+      "message": "contains hardcoded network endpoints",
+      "evidence": [
+        {
+          "file": "index.js",
+          "line": 3,
+          "snippet": "https://collect.example.invalid/e"
+        }
+      ],
+      "docsUrl": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#hardcoded-endpoint"
+    },
+    {
+      "id": "minified-only",
+      "severity": "info",
+      "package": "plain",
+      "message": "ships only minified code",
+      "evidence": [
+        {
+          "detail": "2 JS file(s), all minified"
+        }
+      ],
+      "docsUrl": "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#minified-only"
+    }
+  ]
+}
