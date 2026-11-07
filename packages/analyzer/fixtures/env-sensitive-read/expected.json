@@ -1,0 +1,1 @@
+{ "description": "reads NPM_TOKEN without any network use", "signals": ["env-sensitive-read"], "capabilities": ["env"], "envKeys": ["NPM_TOKEN"] }

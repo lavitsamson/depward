@@ -1,0 +1,10 @@
+{
+  "description": "a readable source file ships alongside the minified one",
+  "signals": [],
+  "capabilities": [],
+  "files": {
+    "src/index.js": {
+      "minified": false
+    }
+  }
+}

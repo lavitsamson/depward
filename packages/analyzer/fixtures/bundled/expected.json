@@ -1,0 +1,15 @@
+{
+  "description": "webpack runtime marks a file as bundled",
+  "signals": [],
+  "capabilities": [],
+  "files": {
+    "dist/bundle.js": {
+      "kind": "js",
+      "bundled": true,
+      "minified": false
+    },
+    "lib/plain.js": {
+      "bundled": false
+    }
+  }
+}

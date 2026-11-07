@@ -1,0 +1,2 @@
+{ "description": "hostname property and a wss URL; homepage and repository are ignored", "signals": ["hardcoded-endpoint"], "capabilities": ["net"],
+  "endpoints": ["api.example.invalid", "wss://stream.example.invalid/feed"] }

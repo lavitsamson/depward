@@ -1,0 +1,1 @@
+{ "description": "loopback, example.com, and doc hosts are excluded", "signals": [], "capabilities": ["net"], "endpoints": [] }

@@ -1,0 +1,7 @@
+{
+  "name": "fx-shebang-bin",
+  "version": "1.0.0",
+  "bin": {
+    "tool": "bin/tool"
+  }
+}

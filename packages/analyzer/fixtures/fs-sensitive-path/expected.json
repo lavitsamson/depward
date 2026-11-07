@@ -1,0 +1,1 @@
+{ "description": "references ~/.ssh/id_rsa", "signals": ["fs-sensitive-path"], "capabilities": ["fs", "os_info"] }

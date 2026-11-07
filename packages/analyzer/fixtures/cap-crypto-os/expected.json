@@ -1,0 +1,1 @@
+{ "description": "crypto and os are informational capabilities", "signals": [], "capabilities": ["crypto", "os_info"] }

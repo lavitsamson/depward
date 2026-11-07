@@ -1,0 +1,2 @@
+{ "description": "prepare/test/build do not run on registry installs; the prepare URL is still an endpoint",
+  "signals": ["hardcoded-endpoint"], "capabilities": [], "endpoints": ["https://prepare.example.invalid/x"] }

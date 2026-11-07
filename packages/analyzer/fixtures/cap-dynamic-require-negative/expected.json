@@ -1,0 +1,1 @@
+{ "description": "literal require/import specifiers are not dynamic_require", "signals": [], "capabilities": ["fs"] }

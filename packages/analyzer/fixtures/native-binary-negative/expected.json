@@ -1,0 +1,13 @@
+{
+  "description": "near miss: text starting with MZ, prose about ELF, and a Java class file (0xcafebabe, major 52)",
+  "signals": [],
+  "capabilities": [],
+  "files": {
+    "notes.txt": {
+      "kind": "other"
+    },
+    "Main.class": {
+      "kind": "other"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+MZ this text file starts with MZ but has no PE header.
+MZ this text file starts with MZ but has no PE header.
+MZ this text file starts with MZ but has no PE header.
+MZ this text file starts with MZ but has no PE header.

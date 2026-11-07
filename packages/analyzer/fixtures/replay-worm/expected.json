@@ -1,0 +1,16 @@
+{
+  "description": "reads ~/.npmrc and issues a publish-like PUT",
+  "signals": [
+    "fs-sensitive-path",
+    "hardcoded-endpoint"
+  ],
+  "capabilities": [
+    "fs",
+    "net",
+    "os_info"
+  ],
+  "endpoints": [
+    "https://registry.example.invalid/fx-replay-worm"
+  ],
+  "severityAtLeast": "high"
+}

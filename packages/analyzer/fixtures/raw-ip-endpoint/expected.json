@@ -1,0 +1,14 @@
+{
+  "description": "fetch to an IP URL and net.connect to an IP constant (RFC 5737 addresses)",
+  "signals": [
+    "hardcoded-endpoint",
+    "raw-ip-endpoint"
+  ],
+  "capabilities": [
+    "net"
+  ],
+  "endpoints": [
+    "198.51.100.23",
+    "http://192.0.2.10/collect"
+  ]
+}

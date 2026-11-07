@@ -1,0 +1,1 @@
+{ "description": "enumerates process.env directly and through an alias", "signals": ["env-sensitive-read"], "capabilities": ["env"] }

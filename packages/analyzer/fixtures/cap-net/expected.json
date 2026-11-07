@@ -1,0 +1,1 @@
+{ "description": "node:https and global fetch", "signals": [], "capabilities": ["net"] }

@@ -32,5 +32,10 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "@depward/core": "workspace:*",
+    "acorn": "8.19.0",
+    "acorn-walk": "8.3.5"
   }
 }

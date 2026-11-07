@@ -1,0 +1,11 @@
+{
+  "description": "a normal library plus one obfuscated file",
+  "signals": [
+    "hardcoded-endpoint",
+    "obfuscation"
+  ],
+  "capabilities": [
+    "dynamic_require"
+  ],
+  "severityAtLeast": "high"
+}

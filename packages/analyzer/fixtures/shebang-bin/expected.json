@@ -1,0 +1,12 @@
+{
+  "description": "an extensionless node-shebang file is analyzed as JS",
+  "signals": [],
+  "capabilities": [
+    "child_process"
+  ],
+  "files": {
+    "bin/tool": {
+      "kind": "js"
+    }
+  }
+}

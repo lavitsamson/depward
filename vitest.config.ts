@@ -1,7 +1,13 @@
 import { defineConfig } from "vitest/config";
 
+// Resolve workspace packages (`@depward/*`) to their TypeScript sources, so tests never
+// depend on a stale build. Vitest runs tests in Vite's SSR environment, which takes its
+// conditions from `ssr.resolve` rather than the top-level `resolve`.
+const conditions = ["@depward/source", "module", "node", "import", "default"];
+
 export default defineConfig({
-  resolve: { conditions: ["@depward/source"] },
+  resolve: { conditions },
+  ssr: { resolve: { conditions, externalConditions: ["@depward/source"] } },
   test: {
     projects: [
       {

@@ -1,0 +1,7 @@
+{
+  "description": "most identifiers look like _0x1234",
+  "signals": [
+    "obfuscation"
+  ],
+  "capabilities": []
+}

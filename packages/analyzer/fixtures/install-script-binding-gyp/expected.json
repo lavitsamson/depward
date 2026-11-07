@@ -1,0 +1,2 @@
+{ "description": "binding.gyp with no install script implies install: node-gyp rebuild", "signals": ["install-script"], "capabilities": [],
+  "scripts": { "install": "node-gyp rebuild" } }

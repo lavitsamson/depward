@@ -1,0 +1,15 @@
+{
+  "description": "every non-trivial JS file is minified",
+  "signals": [
+    "minified-only"
+  ],
+  "capabilities": [],
+  "files": {
+    "dist/index.min.js": {
+      "minified": true
+    },
+    "dist/other.js": {
+      "minified": true
+    }
+  }
+}

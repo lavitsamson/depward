@@ -1,0 +1,1 @@
+{ "description": "local ./fs and the string 'fs' are not the fs capability", "signals": [], "capabilities": [] }

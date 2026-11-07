@@ -1,0 +1,1 @@
+{ "description": "worker_threads and cluster", "signals": [], "capabilities": ["worker"] }
