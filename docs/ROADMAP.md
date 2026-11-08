@@ -89,7 +89,7 @@ Review: `docs/benchmarks.md` § Phase 1. Live test: `test/live/popular-packages.
 Work order: M2.1, **M2.9**, M2.2, M2.3, … (the typosquat check in M2.2 needs the data
 files from M2.9).
 
-- [ ] M2.1 Install-command tokenizer (npm, pnpm, yarn, bun, npx, dlx, bunx, chained
+- [x] M2.1 Install-command tokenizer (npm, pnpm, yarn, bun, npx, dlx, bunx, chained
       commands)
 - [ ] M2.2 Registry checks (existence, age, downloads, typosquat, hallucination list,
       maintainer, provenance, deprecation)

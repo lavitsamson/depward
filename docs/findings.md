@@ -178,3 +178,41 @@ stripped of control characters and truncated. Severities are defaults; policy ma
   so findings carry less context.
 - **Fix:** informational.
 - **False positives:** common for browser-oriented packages.
+
+## Gate: install commands (`@depward/gate`)
+
+Emitted by `parseInstallCommand` while reading a shell command, before any registry or
+tarball check. Default actions (allow / ask / deny) are applied by the policy engine.
+
+### non-registry-source
+
+- **Default severity:** medium (default action: ask)
+- **Emitted by:** `@depward/gate` (`parseInstallCommand`)
+- **Meaning:** a package spec installs from a git repository, GitHub shorthand
+  (`user/repo`), a URL, a local path or tarball, or another non-npm protocol (`jsr:`,
+  `patch:`), so depward's registry and tarball checks can't see what it installs.
+  `package` is the alias if one was given (`foo@github:u/r`), otherwise the spec.
+  `workspace:` specs are local workspace packages and don't produce this finding.
+- **Fix:** install a published registry version instead, or allow the source explicitly
+  once you trust it.
+- **False positives:** local development (`npm i ../my-lib`) and forks you control.
+
+### unparseable-command
+
+- **Default severity:** medium (default action: ask)
+- **Emitted by:** `@depward/gate` (`parseInstallCommand`)
+- **Meaning:** the command involves a package manager, but depward can't tell what it
+  installs. `package` is `(command)`; the evidence `detail` says why: a spec or program
+  name computed at run time (`npm i $PKG`, `$(which npm) i x`), specs read from `xargs`,
+  an invalid package spec, a shell syntax error, or nesting deeper than 8 levels.
+- **Fix:** write the package names literally, then run the command again.
+- **False positives:** scripts that compute versions from variables on purpose.
+
+### global-install
+
+- **Default severity:** info (default action: allow)
+- **Emitted by:** `@depward/gate` (`parseInstallCommand`)
+- **Meaning:** the package is installed globally (`-g`, `--global`,
+  `--location=global`, `yarn global add`), so its binaries land on the user's `PATH`.
+- **Fix:** informational. Prefer a project-local dev dependency where possible.
+- **False positives:** none; it's a note.
