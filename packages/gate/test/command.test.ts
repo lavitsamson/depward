@@ -204,6 +204,10 @@ const CASES: [string, string[]][] = [
   ['npm i "foo', ["!unparseable-command"]],
   ["npm i foo)", ["!unparseable-command"]],
   ['echo "unterminated', []],
+  // updates stay within declared ranges: diff's job, not an install
+  ["npm update foo", []],
+  ["pnpm update", []],
+  ["yarn upgrade foo", []],
   // no package manager
   ["", []],
   ["ls -la", []],

@@ -32,12 +32,21 @@ Specs to handle:
 - `alias@npm:real@range`. Check the *real* package
 - git, GitHub shorthand, URL, and `file:` specs. These produce a `non-registry-source`
   finding (default: ask)
+- `workspace:` specs refer to packages inside the user's own monorepo. They produce a
+  `PackageRequest` with `source: "workspace"` but no finding, and registry checks skip
+  them
 
 Ignore flags but preserve them. `-g` and `--global` add an `info` note.
 
 If a command clearly involves a package manager but can't be parsed, produce an
-`unparseable-command` finding (default: ask). Commands with no package-manager
-invocation produce an `allow` with no findings and must return within 50 ms.
+`unparseable-command` finding (default: ask). A shell syntax error (for example an
+unclosed quote) produces only that one finding: no partial `PackageRequest`s are
+extracted from the broken command. Commands with no package-manager invocation produce
+an `allow` with no findings and must return within 50 ms.
+
+`npm update` / `pnpm update` / `yarn upgrade` are not install forms. They move existing
+dependencies within their declared ranges, and the resulting lockfile change is diff's
+job (like lockfile-mode commands below).
 
 Lockfile-mode commands (`npm ci`, `pnpm install` with no args): `allow`. Lockfile
 changes are diff's job.

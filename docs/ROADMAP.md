@@ -101,7 +101,7 @@ files from M2.9).
 - [ ] M2.7 `@depward/mcp` with the `check_packages` and `check_install_command` tools
 - [ ] M2.8 Docs site pages for setup in Claude Code, Cursor, and Codex CLI. Only document
       adapters that actually exist
-- [ ] M2.9 Data files: `data/popular-packages.json`, `data/hallucinated-names.json`,
+- [x] M2.9 Data files: `data/popular-packages.json`, `data/hallucinated-names.json`,
       with source and update script documented
 
 **Definition of done:**

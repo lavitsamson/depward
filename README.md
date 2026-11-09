@@ -23,4 +23,4 @@ pnpm build && pnpm lint && pnpm test && pnpm check:publish
 pnpm depward -- --help
 ```
 
-Security reports: see [SECURITY.md](SECURITY.md). License: [MIT](LICENSE).
+Security reports: see [SECURITY.md](SECURITY.md). License: [MIT](LICENSE), except `data/popular-packages.json` (CC BY-SA 4.0, see [data/README.md](data/README.md)).
