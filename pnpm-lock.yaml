@@ -219,7 +219,11 @@ importers:
 
   packages/diff: {}
 
-  packages/gate: {}
+  packages/gate:
+    dependencies:
+      '@depward/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/mcp: {}
 
