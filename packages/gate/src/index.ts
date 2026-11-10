@@ -15,6 +15,16 @@ export { checkPackage, type PackageCheckOptions, type PackageCheckResult } from 
 export { checkCommand, checkSpecs, type Decision, type GateOptions, type PackageDecision } from "./gate.ts";
 export { DEFAULT_ACTIONS, defaultAction, stricter, strictest } from "./policy/actions.ts";
 export {
+  HOOK_ADAPTERS,
+  claudeAdapter,
+  hookVerdict,
+  type HookAdapter,
+  type HookParse,
+  type HookRequest,
+  type HookResponse,
+  type HookVerdict,
+} from "./adapters/index.ts";
+export {
   DECISION_JSON_VERSION,
   decisionFindings,
   serializeDecision,
@@ -31,7 +41,7 @@ export {
   type Policy,
 } from "./policy/engine.ts";
 export { compileList, type ListMatch, type ListMatcher } from "./policy/lists.ts";
-export { checkTarball, type TarballCheckOptions, type TarballCheckResult } from "./tarball/check.ts";
+export { checkTarball, preloadAnalyzer, type TarballCheckOptions, type TarballCheckResult } from "./tarball/check.ts";
 export {
   checkRegistry,
   type RegistryCheckInput,

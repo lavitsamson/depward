@@ -6,7 +6,7 @@
 // Escalations (install-script + package-too-new or low-downloads → deny, any critical →
 // deny) belong to the policy engine (policy/engine.ts), like the registry ones.
 
-import { analyzePackage, profileFindings, type AnalyzeOptions, type PackageProfile } from "@depward/analyzer";
+import type { AnalyzeOptions, PackageProfile } from "@depward/analyzer";
 import {
   DepwardError,
   findingDocsUrl,
@@ -19,6 +19,15 @@ import {
   type TarLimits,
   type VersionMeta,
 } from "@depward/core";
+
+/**
+ * Loads `@depward/analyzer` (and acorn). The tarball stage does this on first use, so
+ * hook calls that never reach it don't pay for it. Long-running processes can call this
+ * at startup to keep their first check fast.
+ */
+export function preloadAnalyzer(): Promise<typeof import("@depward/analyzer")> {
+  return import("@depward/analyzer");
+}
 
 /** Options for {@link checkTarball}. */
 export interface TarballCheckOptions {
@@ -84,6 +93,7 @@ export async function checkTarball(meta: VersionMeta, opts: TarballCheckOptions)
     name, version, findings: sortFindings(findings), profile, errors,
   });
 
+  const { analyzePackage, profileFindings } = await preloadAnalyzer();
   let profile: PackageProfile;
   try {
     const bytes = await opts.registry.tarball(meta);

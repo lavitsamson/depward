@@ -4,6 +4,7 @@
 import { parseArgs } from "node:util";
 import { escapeUnsafe, isDepwardError } from "@depward/core";
 import { CHECK_USAGE, runCheck } from "./check.ts";
+import { HOOK_USAGE, runHook } from "./hook.ts";
 import { EXIT, UsageError, type Io, type Runtime } from "./runtime.ts";
 
 export { EXIT, type Io } from "./runtime.ts";
@@ -16,6 +17,7 @@ const USAGE = `Usage: depward <command> [options]
 Commands:
   check <spec...>             Check packages before installing them
   check --command "<cmd>"     Check what a shell command would install
+  hook claude                 Claude Code PreToolUse hook (hook input on stdin)
 
 Run "depward <command> --help" for a command's options.
 
@@ -28,6 +30,7 @@ Exit codes: 0 allow, 10 ask, 20 deny, 1 error.
 
 const COMMANDS: Record<string, { run: (argv: string[], rt: Runtime) => Promise<number>; usage: string }> = {
   check: { run: runCheck, usage: CHECK_USAGE },
+  hook: { run: runHook, usage: HOOK_USAGE },
 };
 
 function errorText(err: unknown): string {

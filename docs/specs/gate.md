@@ -221,6 +221,42 @@ Expected design (verify):
   by default). That is accepted; a warm cache stays well inside the budget.
 - Never write anything to stdout other than the decision JSON. Send logs to stderr.
 
+Verified against https://code.claude.com/docs/en/hooks on 2026-11-10 (M2.6,
+`packages/gate/src/adapters/claude.ts`, `packages/cli/src/hook.ts`):
+- stdin and matcher are as expected. `tool_input.command` is the command; `cwd` is the
+  agent's current directory.
+- Output on exit 0: `{ hookSpecificOutput: { hookEventName: "PreToolUse",
+  permissionDecision, permissionDecisionReason, additionalContext? } }`. The top-level
+  `decision`/`reason` fields are deprecated for this event.
+- **Correction to the expected design:** `"allow"` skips the user's permission prompt,
+  so mapping depward's allow to it would auto-approve every command depward has no
+  objection to (`rm -rf`, `git push --force`). depward therefore never answers
+  `allow`: for allow it prints nothing and exits 0, and Claude Code's own permission
+  rules decide. `ask` and `deny` map one to one.
+- The reason of `deny` is shown to Claude; the reason of `ask` is shown to the user. So
+  `ask` also sends the reason as `additionalContext`, which lets the agent self-correct.
+- Exit codes other than 0 and 2 let the tool call proceed. So the hook always exits 0
+  and turns every failure into a decision: invalid JSON or a payload without a command
+  string → ask; a config that can't be loaded → ask; a timeout or crash → `onError`.
+  Only command-line misuse (`depward hook`, an unknown agent) exits 1, which Claude Code
+  shows as a hook error.
+- Events other than `PreToolUse` and tools other than `Bash` get no output.
+- The config is read from `$CLAUDE_PROJECT_DIR` (set for hooks), else the payload's
+  `cwd`. The agent may have `cd`-ed into a subdirectory, and config lookup does not
+  search parents. `--config` is relative to that directory.
+- Reason text: `hookVerdict` gives up to five `Decision.reasons` lines, each
+  `depward: <action> <name@version>: <finding-id> — <message>` (messages carry the
+  suggested name or older version), plus a "don't work around this" line for deny.
+  It is capped at 2,000 characters.
+- Budget: `checkCommand` races a 4 s timer; the process exits as soon as stdout has
+  flushed, abandoning any in-flight request. Commands with no package-manager install
+  answer in about 10 ms after startup. `yaml`, `semver`, and the analyzer (acorn)
+  load on first use, which cut import time from about 320 ms to about 65 ms per call.
+  The long-running MCP server can call `preloadAnalyzer()` at startup.
+- Golden files: `packages/cli/test/golden/claude/<case>.stdin` → `.stdout` (exact
+  bytes; empty means no opinion). Regenerate with `DEPWARD_UPDATE_GOLDEN=1` and review
+  the diff.
+
 Setup docs should recommend a **pinned global install** (`npm i -g depward@x.y.z`) over
 `npx depward` in the hook, because `npx` would itself be an unchecked install.
 

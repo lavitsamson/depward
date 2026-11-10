@@ -2,8 +2,9 @@
 
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
-> **Status:** pre-release (Phase 2). `depward check` works; the Claude Code hook
-> (`depward hook claude`) comes next. See the [roadmap](../../docs/ROADMAP.md).
+> **Status:** pre-release (Phase 2). `depward check` and the Claude Code hook
+> (`depward hook claude`) work; the MCP server comes next. See the
+> [roadmap](../../docs/ROADMAP.md).
 
 ## Example
 
@@ -47,6 +48,33 @@ default).
 the action each one got, and failed lookups. `sarif` and `markdown` contain every
 finding, for CI and pull-request comments. Every finding ID is described in
 [docs/findings.md](../../docs/findings.md).
+
+## Claude Code hook
+
+Add this to `.claude/settings.json` (project) or `~/.claude/settings.json` (user):
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "depward hook claude", "timeout": 10 }] }
+    ]
+  }
+}
+```
+
+Install depward globally at a pinned version (`npm i -g depward@x.y.z`) rather than
+running it through `npx`, which would itself be an unchecked install. Before Claude
+runs a Bash command, depward reads it (never runs it) and checks every package it would
+install or execute:
+
+- **deny**: Claude is told why, with the suggested real package or older version.
+- **ask**: you are asked to confirm, and Claude sees the reason too.
+- **nothing to object to**: depward stays silent, and your normal permission rules
+  apply. depward never auto-approves a command.
+
+The check gives up after 4 s and then applies the config's `onError` (ask by default).
+Logs go to stderr; stdout carries only the decision.
 
 ## Config
 

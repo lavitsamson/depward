@@ -1,0 +1,1 @@
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"depward: deny depward-fixture-missing@latest: package-not-found — depward-fixture-missing does not exist on the registry. It may be a typo or a name an AI model made up.\nDon't work around this check. Use the suggested package or version if there is one, or ask the user."}}

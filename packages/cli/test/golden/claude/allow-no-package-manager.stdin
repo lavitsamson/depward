@@ -1,0 +1,15 @@
+{
+  "session_id": "golden-session",
+  "transcript_path": "/home/user/.claude/projects/golden/transcript.jsonl",
+  "cwd": "/nonexistent/depward-golden-project",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_use_id": "toolu_golden",
+  "tool_input": {
+    "command": "ls -la && git status",
+    "description": "golden case",
+    "timeout": 120000,
+    "run_in_background": false
+  }
+}

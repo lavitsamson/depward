@@ -1,0 +1,1 @@
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"depward: ask unparseable-command — depward can't tell what this package-manager command installs","additionalContext":"depward: ask unparseable-command — depward can't tell what this package-manager command installs"}}

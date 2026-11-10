@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createFixtureRegistryClient } from "@depward/core/testing";
-import { createGateData, type Decision } from "@depward/gate";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { createGateData, preloadAnalyzer, type Decision } from "@depward/gate";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { EXIT, VERSION, main, type Io } from "../src/index.ts";
 import { renderDecisionTerminal } from "../src/render.ts";
 
@@ -20,6 +20,12 @@ const data = createGateData(
     suggestion: "depward-fixture-stable",
   }],
 );
+
+// The gate loads the analyzer on first use. Load it here, so vitest's one-time transform
+// of the analyzer sources isn't timed as part of the first test that needs it.
+beforeAll(async () => {
+  await preloadAnalyzer();
+});
 
 let cwd: string;
 beforeEach(async () => {
