@@ -2,8 +2,8 @@
 
 Answers one question before anything is installed: should this package or install command be allowed? The result is `allow`, `ask`, or `deny`, with reasons.
 
-> **Status:** pre-release (Phase 2). The install-command tokenizer (M2.1) and the
-> registry checks (M2.2) are done. Tarball checks and the policy engine come next. See
+> **Status:** pre-release (Phase 2). The install-command tokenizer (M2.1), registry
+> checks (M2.2), and tarball checks (M2.3) are done. The policy engine comes next. See
 > the [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -39,6 +39,12 @@ too new, new or unpopular packages, publisher and maintainer changes, dropped
 provenance, and deprecation. Every finding ID is described in
 [docs/findings.md](../../docs/findings.md). Network failures are returned in
 `result.errors`; they are never thrown.
+
+`checkPackage` runs the registry checks and then the tarball checks: it downloads the
+resolved version's tarball, verifies its integrity hash, reads it in memory, and runs
+[`@depward/analyzer`](../analyzer) on it. Package code is never executed and extracted
+files are never written to disk. A tampered or unsafe archive (`..` paths, corrupt,
+over the size limits) is reported as a finding, not an error.
 
 ## Data and licensing
 

@@ -115,6 +115,23 @@ Run the analyzer and map its signals to findings one-to-one. Escalations:
 - `install-script` together with `package-too-new` or `low-downloads` → deny
 - any `critical` signal → deny
 
+Archive failures are findings, not errors (approved 2026-11-10), so a crafted archive
+can't downgrade itself to `onError`:
+
+| Finding ID | Default | Logic |
+|---|---|---|
+| `tarball-integrity-mismatch` | deny (critical) | the bytes don't match `dist.integrity` / `dist.shasum`, or there is no usable hash |
+| `tarball-unsafe` | deny (high) | unsafe entry paths or links, corrupt archive, no `package.json` object, or over a size or entry limit |
+
+Network failures and timeouts while downloading stay errors (`onError`).
+
+How M2.3 reads this (`checkTarball`, `checkPackage`):
+- Findings are reported under the requested name and version, never the archive's own
+  `package.json`.
+- `checkPackage` runs the tarball stage whenever a version resolved. Skipping it once a
+  registry finding already denies needs the policy engine's actions, so M2.4 adds that.
+- The escalations above are applied by the policy engine (M2.4), like the registry ones.
+
 ## Policy engine
 
 - Start from the default action per finding ID. Apply config overrides, then the
