@@ -27,7 +27,7 @@ export {
   type GateData,
   type HallucinatedName,
 } from "./registry/data.ts";
-export { levenshtein } from "./registry/levenshtein.ts";
+export { editDistance } from "./registry/edit-distance.ts";
 export {
   createPopularIndex,
   type PopularIndex,

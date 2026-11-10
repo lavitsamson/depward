@@ -225,9 +225,9 @@ describe("typosquat-suspect", () => {
     const f = r.findings.find((x) => x.id === "typosquat-suspect");
     expect(f?.severity).toBe("high");
     expect(f?.message).toBe(
-      "depward-fixture-stabel is 2 characters away from the popular package depward-fixture-stable, which has far more downloads. Did you mean depward-fixture-stable?",
+      "depward-fixture-stabel is 1 character away from the popular package depward-fixture-stable, which has far more downloads. Did you mean depward-fixture-stable?",
     );
-    expect(f?.evidence[0]?.detail).toBe("depward-fixture-stable: 1234567 weekly downloads (edit-distance, distance 2)");
+    expect(f?.evidence[0]?.detail).toBe("depward-fixture-stable: 1234567 weekly downloads (edit-distance, distance 1)");
     expect(r.suggestion).toEqual({ name: "depward-fixture-stable" });
   });
 

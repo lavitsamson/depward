@@ -291,8 +291,9 @@ the error instead of a finding, and the policy engine applies `onError` (default
 - **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/gate` (`checkRegistry`)
 - **Meaning:** the name is close to a package in `data/popular-packages.json` and that
-  package has at least 100× more weekly downloads. Close means a Levenshtein distance of
-  at most 2 (at most 1 when the popular name has 5 characters or fewer), or the same
+  package has at least 100× more weekly downloads. Close means an edit distance of at
+  most 2 (at most 1 when the popular name has 5 characters or fewer), where swapping two
+  adjacent letters counts as one edit (`axois` vs `axios`), or the same
   name after removing `-`, `_`, `.`, and the scope (`types-node` vs `@types/node`).
   Packages on the popular list are never flagged, and names in the same scope are
   never compared: only the scope's owner can publish there. Unknown download counts
@@ -306,11 +307,15 @@ the error instead of a finding, and the policy engine applies `onError` (default
 - **Default severity:** medium (default action: ask)
 - **Emitted by:** `@depward/gate` (`checkRegistry`)
 - **Meaning:** the resolved version's `_npmUser` (the account that published it) did
-  not publish any of the previous 5 versions (by publish time). Account takeovers
-  usually look like this. The evidence lists the earlier publishers.
+  not publish any of the previous 5 versions (by publish time) and is not an established
+  maintainer. Established means listed in the `maintainers` of the version just before
+  and of the newest version published at least 30 days earlier, so an account that was
+  added recently never counts. Account takeovers usually look like this. The evidence
+  lists the earlier publishers.
 - **Fix:** check the project's changelog or repository for the new maintainer.
-- **False positives:** maintainer hand-overs, and switching to trusted publishing
-  (the publisher becomes the CI identity).
+- **False positives:** new team members' first releases, and switching to trusted
+  publishing (the publisher becomes the CI identity), unless that account was already
+  a listed maintainer.
 
 ### maintainer-added-recently
 

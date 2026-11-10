@@ -61,8 +61,8 @@ changes are diff's job.
 | `version-too-new` | ask | resolved version is younger than `minVersionAgeDays` (7). Suggest the newest version that is old enough |
 | `package-too-new` | ask | first publish is younger than `minPackageAgeDays` (30) |
 | `low-downloads` | ask | weekly downloads below `minWeeklyDownloads` (500). Combined with `package-too-new` → deny |
-| `typosquat-suspect` | ask | Levenshtein ≤ 2 (or ≤ 1 for names of 5 chars or fewer), or a separator/scope swap, against `data/popular-packages.json`, and this package is much less popular |
-| `publisher-changed` | ask | `_npmUser` of the resolved version is not among the publishers of the previous 5 versions |
+| `typosquat-suspect` | ask | Edit distance ≤ 2 (or ≤ 1 for names of 5 chars or fewer; optimal string alignment, so swapping two adjacent letters counts as 1), or a separator/scope swap, against `data/popular-packages.json`, and this package is much less popular |
+| `publisher-changed` | ask | `_npmUser` of the resolved version is not among the publishers of the previous 5 versions, and is not an established maintainer (listed on the previous version and on the newest version published 30+ days earlier) |
 | `maintainer-added-recently` | low | the maintainers list changed in the last 30 days (compare against older versions) |
 | `provenance-dropped` | high (ask) | earlier versions had attestations, this one doesn't |
 | `deprecated` | low | `deprecated` field is set |
@@ -84,6 +84,14 @@ How M2.2 reads the table (`checkRegistry`, `src/registry/`):
   the requested range").
 - "Previous versions" means earlier by publish time, not by semver. `publisher-changed`
   and `provenance-dropped` look at the previous 5.
+- Approved changes (2026-11-10), made after the live run:
+  - `publisher-changed` exempts established maintainers. typescript@7.0.2 was flagged
+    only because its CI account, listed for months, had not published in the last 5
+    versions. "Established" also needs a listing 30+ days earlier. Without that, an
+    attacker could list a new account in one release and publish from it in the next.
+  - Typosquat distance is optimal string alignment (OSA) rather than plain
+    Levenshtein. Swapped letters are a common typo, and short names (limit 1) missed
+    them (`axois`, `raect`).
 - `maintainer-added-recently` compares per-version `maintainers` of versions published
   in the last 30 days with the newest version older than that. It is package-level
   (no `version`), and it is skipped when no version is older than 30 days.

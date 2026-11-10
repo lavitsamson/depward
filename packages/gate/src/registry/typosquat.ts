@@ -1,7 +1,7 @@
 // Typosquat detection against the popular-packages list (data/popular-packages.json).
 // Spec: docs/specs/gate.md §Registry checks, `typosquat-suspect`.
 
-import { levenshtein } from "./levenshtein.ts";
+import { editDistance } from "./edit-distance.ts";
 
 /** One entry of the popular-packages list. */
 export interface PopularPackage {
@@ -15,7 +15,7 @@ export type SimilarityKind = "edit-distance" | "separator" | "scope";
 /** A popular package whose name is close to the one being checked. */
 export interface SimilarPackage extends PopularPackage {
   readonly kind: SimilarityKind;
-  /** Levenshtein distance between the two names. */
+  /** Edit distance ({@link editDistance}) between the two names. */
   readonly distance: number;
 }
 
@@ -79,12 +79,12 @@ export function createPopularIndex(packages: readonly PopularPackage[]): Popular
 
       for (const p of byKey.get(separatorKey(name)) ?? []) {
         // Same-scope names are skipped in consider(), so a scoped side means a scope swap.
-        consider(p, scope === null && scopeOf(p.name) === null ? "separator" : "scope", levenshtein(name, p.name));
+        consider(p, scope === null && scopeOf(p.name) === null ? "separator" : "scope", editDistance(name, p.name));
       }
       for (let len = name.length - 2; len <= name.length + 2; len++) {
         for (const p of byLength.get(len) ?? []) {
           const max = maxDistanceFor(p.name);
-          const d = levenshtein(name, p.name, max);
+          const d = editDistance(name, p.name, max);
           if (d <= max) consider(p, "edit-distance", d);
         }
       }

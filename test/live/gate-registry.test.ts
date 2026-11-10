@@ -35,6 +35,8 @@ describe("live registry checks", () => {
     ["express", "4.21.1"],
     ["react", "18.3.1"],
     ["@types/node", "22.15.3"],
+    // First release by microsoft1es, a maintainer listed for months before: established.
+    ["typescript", "7.0.2"],
   ])("an old release of %s@%s has no findings", async (name, version) => {
     const r = await check(name, version);
     expect(r.errors).toEqual([]);
@@ -42,15 +44,18 @@ describe("live registry checks", () => {
     expect(r.findings).toEqual([]);
   });
 
-  // Reviewed 2026-11-10: true by the spec's rule, but noise in practice. express@4.21.2
-  // (Dec 2024) was the first release by jonchurch, a new member of the release team;
-  // typescript@7.0.2 (Jul 2026) was the first by microsoft1es, already a listed
-  // maintainer. A spec change to the publisher-changed rule is proposed in the M2.2 PR.
-  test.each([
-    ["express", "4.21.2"],
-    ["typescript", "7.0.2"],
-  ])("known publisher-changed case: %s@%s", async (name, version) => {
-    expect(ids(await check(name, version))).toEqual(["publisher-changed"]);
+  // Reviewed 2026-11-10 and kept on purpose: express@4.21.2 (Dec 2024) was the first
+  // release by jonchurch, who was not a listed maintainer before it. That is a real
+  // publisher change; it was legitimate, but it is exactly what the check is for.
+  test("known publisher-changed case: express@4.21.2", async () => {
+    expect(ids(await check("express", "4.21.2"))).toEqual(["publisher-changed"]);
+  });
+
+  test("a swapped-letter typo of axios points to axios", async () => {
+    // Whether or not someone registered `axois`, the result names the real package.
+    const r = await check("axois");
+    expect(ids(r).some((id) => id === "typosquat-suspect" || id === "package-not-found")).toBe(true);
+    expect(r.suggestion.name).toBe("axios");
   });
 
   test("a missing version is reported", async () => {

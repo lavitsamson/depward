@@ -58,17 +58,38 @@ export interface PublisherChange {
   readonly previous: readonly string[];
 }
 
+/** A maintainer counts as established once listed this many days before a publish. */
+export const ESTABLISHED_MAINTAINER_DAYS = 30;
+
 /**
- * `publisher-changed`: the version's `_npmUser` is not among the publishers of the
- * previous {@link HISTORY_WINDOW} versions. `null` when it is, or when there is no
- * history to compare with.
+ * `publisher-changed`: the version's `_npmUser` did not publish any of the previous
+ * {@link HISTORY_WINDOW} versions and is not an established maintainer. `null`
+ * otherwise, or when there is no history to compare with.
+ *
+ * Established means listed in the `maintainers` of the version just before this one
+ * *and* of the newest version published at least {@link ESTABLISHED_MAINTAINER_DAYS}
+ * days before it. Each version records its maintainers as they were at publish time,
+ * so an account an attacker added recently never qualifies, even if a release in
+ * between already lists it. A long-standing maintainer publishing for the first time
+ * (a team member, or a CI account) is not flagged.
  */
 export function publisherChange(packument: Packument, meta: VersionMeta): PublisherChange | null {
   const publisher = personName(meta._npmUser);
   if (publisher === null) return null;
-  const previous = [...new Set(previousVersions(packument, meta.version).map((m) => personName(m._npmUser)).filter((n) => n !== null))];
+  const history = previousVersions(packument, meta.version);
+  const previous = [...new Set(history.map((m) => personName(m._npmUser)).filter((n) => n !== null))];
   if (previous.length === 0 || previous.includes(publisher)) return null;
-  return { publisher, previous };
+  return isEstablishedMaintainer(packument, meta, publisher, history[0]) ? null : { publisher, previous };
+}
+
+function isEstablishedMaintainer(packument: Packument, meta: VersionMeta, name: string, last: VersionMeta | undefined): boolean {
+  const at = publishTime(packument, meta.version);
+  if (at === null || last === undefined || !maintainerNames(last)?.has(name)) return false;
+  const cutoff = at - ESTABLISHED_MAINTAINER_DAYS * DAY;
+  const baseline = timed(packument)
+    .filter((t) => t.at <= cutoff)
+    .toSorted((a, b) => b.at - a.at)[0];
+  return baseline !== undefined && maintainerNames(baseline.meta)?.has(name) === true;
 }
 
 /** A maintainer who first appears in a recently published version. */
