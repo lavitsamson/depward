@@ -216,3 +216,135 @@ tarball check. Default actions (allow / ask / deny) are applied by the policy en
   `--location=global`, `yarn global add`), so its binaries land on the user's `PATH`.
 - **Fix:** informational. Prefer a project-local dev dependency where possible.
 - **False positives:** none; it's a note.
+
+## Gate: registry checks (`@depward/gate`)
+
+Emitted by `checkRegistry` from registry metadata only (the packument and npm's weekly
+download count). Nothing is downloaded or run. Thresholds are configurable. Default
+actions are applied by the policy engine, which also escalates `low-downloads` together
+with `package-too-new` to deny. When a lookup fails (network, timeout), the check returns
+the error instead of a finding, and the policy engine applies `onError` (default: ask).
+
+### package-not-found
+
+- **Default severity:** high (default action: deny)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the registry has no package with this name. AI agents often invent
+  plausible names, and attackers register such names once they spread ("slopsquatting").
+  The message suggests the closest popular package when one is near.
+- **Fix:** check the name. Use the suggested package if it is what you meant.
+- **False positives:** a private package queried against the wrong registry. Check the
+  scope's registry in `.npmrc`.
+
+### known-hallucinated-name
+
+- **Default severity:** critical (default action: deny)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the name is in `data/hallucinated-names.json`: AI models are publicly
+  documented to invent it. It is flagged even if someone has since registered the
+  name, because that someone is often an attacker (or a placeholder). The evidence
+  links the public source; the message names the real package.
+- **Fix:** install the suggested package.
+- **False positives:** you really want the package that now holds the name. Allow it
+  by `name@version` in the config.
+
+### version-not-found
+
+- **Default severity:** high (default action: deny)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** no published version matches the requested range, version, or
+  dist-tag. The evidence lists the package's dist-tags.
+- **Fix:** pick an existing version, for example `latest`.
+- **False positives:** a version published seconds ago that the registry cache hasn't
+  served yet.
+
+### version-too-new
+
+- **Default severity:** medium (default action: ask)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the resolved version was published less than `minVersionAgeDays` (7)
+  ago. Most malicious releases are found and removed within days, so waiting a week
+  avoids most of them. The message suggests the newest version that is old enough,
+  within the requested range if possible.
+- **Fix:** install the suggested older version, or wait.
+- **False positives:** urgent security fixes. Allow that exact `name@version`.
+
+### package-too-new
+
+- **Default severity:** medium (default action: ask; deny together with `low-downloads`)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the package was first published less than `minPackageAgeDays` (30) ago.
+- **Fix:** prefer an established package, or review this one before allowing it.
+- **False positives:** new packages from people you trust.
+
+### low-downloads
+
+- **Default severity:** medium (default action: ask; deny together with `package-too-new`)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the package had fewer than `minWeeklyDownloads` (500) downloads last
+  week. Not checked on non-public registries, which have no download counts.
+- **Fix:** prefer a widely used alternative, or review the package before allowing it.
+- **False positives:** niche but legitimate packages.
+
+### typosquat-suspect
+
+- **Default severity:** high (default action: ask)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the name is close to a package in `data/popular-packages.json` and that
+  package has at least 100× more weekly downloads. Close means an edit distance of at
+  most 2 (at most 1 when the popular name has 5 characters or fewer), where swapping two
+  adjacent letters counts as one edit (`axois` vs `axios`), or the same
+  name after removing `-`, `_`, `.`, and the scope (`types-node` vs `@types/node`).
+  Packages on the popular list are never flagged, and names in the same scope are
+  never compared: only the scope's owner can publish there. Unknown download counts
+  count as 0. Evidence lists up to 3 similar popular packages.
+- **Fix:** install the popular package if that is what you meant.
+- **False positives:** small legitimate packages with names near popular ones
+  (`preact`-style forks, plugins). Allow them by name.
+
+### publisher-changed
+
+- **Default severity:** medium (default action: ask)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the resolved version's `_npmUser` (the account that published it) did
+  not publish any of the previous 5 versions (by publish time) and is not an established
+  maintainer. Established means listed in the `maintainers` of the version just before
+  and of the newest version published at least 30 days earlier, so an account that was
+  added recently never counts. Account takeovers usually look like this. The evidence
+  lists the earlier publishers.
+- **Fix:** check the project's changelog or repository for the new maintainer.
+- **False positives:** new team members' first releases, and switching to trusted
+  publishing (the publisher becomes the CI identity), unless that account was already
+  a listed maintainer.
+
+### maintainer-added-recently
+
+- **Default severity:** low (default action: allow)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** a version published in the last 30 days lists a maintainer that the
+  newest version older than 30 days doesn't. This is about the package, not the
+  resolved version, so it has no `version`. It isn't checked for packages with no
+  version older than 30 days (see `package-too-new`).
+- **Fix:** informational. Combined with other findings, it suggests a takeover.
+- **False positives:** normal team growth.
+
+### provenance-dropped
+
+- **Default severity:** high (default action: ask)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the resolved version has no provenance attestation, but at least one of
+  the previous 5 versions (by publish time) had one. A release from a stolen token is
+  usually published from a laptop, not the project's CI. Attestations are detected by
+  presence only; they are not cryptographically verified yet.
+- **Fix:** use the last version with provenance until the maintainers explain the change.
+- **False positives:** a maintainer publishing manually once (for example a hotfix).
+
+### deprecated
+
+- **Default severity:** low (default action: allow)
+- **Emitted by:** `@depward/gate` (`checkRegistry`)
+- **Meaning:** the resolved version is deprecated. The evidence holds the deprecation
+  message, escaped and truncated to 200 characters. When a range allows other versions,
+  the resolver already prefers non-deprecated ones, as npm does.
+- **Fix:** follow the deprecation message, usually by upgrading.
+- **False positives:** none; it's a note.

@@ -91,7 +91,7 @@ files from M2.9).
 
 - [x] M2.1 Install-command tokenizer (npm, pnpm, yarn, bun, npx, dlx, bunx, chained
       commands)
-- [ ] M2.2 Registry checks (existence, age, downloads, typosquat, hallucination list,
+- [x] M2.2 Registry checks (existence, age, downloads, typosquat, hallucination list,
       maintainer, provenance, deprecation)
 - [ ] M2.3 Tarball checks via analyzer (install scripts, capabilities, obfuscation)
 - [ ] M2.4 Policy engine and config file. Decision is `allow`, `ask`, or `deny`, with

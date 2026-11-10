@@ -61,12 +61,53 @@ changes are diff's job.
 | `version-too-new` | ask | resolved version is younger than `minVersionAgeDays` (7). Suggest the newest version that is old enough |
 | `package-too-new` | ask | first publish is younger than `minPackageAgeDays` (30) |
 | `low-downloads` | ask | weekly downloads below `minWeeklyDownloads` (500). Combined with `package-too-new` → deny |
-| `typosquat-suspect` | ask | Levenshtein ≤ 2 (or ≤ 1 for names of 5 chars or fewer), or a separator/scope swap, against `data/popular-packages.json`, and this package is much less popular |
-| `publisher-changed` | ask | `_npmUser` of the resolved version is not among the publishers of the previous 5 versions |
+| `typosquat-suspect` | ask | Edit distance ≤ 2 (or ≤ 1 for names of 5 chars or fewer; optimal string alignment, so swapping two adjacent letters counts as 1), or a separator/scope swap, against `data/popular-packages.json`, and this package is much less popular |
+| `publisher-changed` | ask | `_npmUser` of the resolved version is not among the publishers of the previous 5 versions, and is not an established maintainer (listed on the previous version and on the newest version published 30+ days earlier) |
 | `maintainer-added-recently` | low | the maintainers list changed in the last 30 days (compare against older versions) |
 | `provenance-dropped` | high (ask) | earlier versions had attestations, this one doesn't |
 | `deprecated` | low | `deprecated` field is set |
 | `non-registry-source` | ask | from the tokenizer |
+
+How M2.2 reads the table (`checkRegistry`, `src/registry/`):
+- Severities: `known-hallucinated-name` critical; `package-not-found`,
+  `version-not-found`, `typosquat-suspect`, `provenance-dropped` high;
+  `version-too-new`, `package-too-new`, `low-downloads`, `publisher-changed` medium;
+  `maintainer-added-recently`, `deprecated` low. Actions come from the policy engine's
+  per-ID defaults in the table above, not from severity. The engine (M2.4) also owns
+  every escalation (`low-downloads` + `package-too-new` → deny).
+- Range resolution follows npm (npm-pick-manifest): a dist-tag names its version;
+  for a range, `latest` wins when it satisfies, otherwise the highest satisfying
+  version, preferring non-deprecated ones. `resolveVersion` lives in `@depward/core`
+  (the only package allowed to use `semver`).
+- The suggested version for `version-too-new` is the newest old-enough version within
+  the requested range, else the newest old-enough version overall (labelled "outside
+  the requested range").
+- "Previous versions" means earlier by publish time, not by semver. `publisher-changed`
+  and `provenance-dropped` look at the previous 5.
+- Approved changes (2026-11-10), made after the live run:
+  - `publisher-changed` exempts established maintainers. typescript@7.0.2 was flagged
+    only because its CI account, listed for months, had not published in the last 5
+    versions. "Established" also needs a listing 30+ days earlier. Without that, an
+    attacker could list a new account in one release and publish from it in the next.
+  - Typosquat distance is optimal string alignment (OSA) rather than plain
+    Levenshtein. Swapped letters are a common typo, and short names (limit 1) missed
+    them (`axois`, `raect`).
+- `maintainer-added-recently` compares per-version `maintainers` of versions published
+  in the last 30 days with the newest version older than that. It is package-level
+  (no `version`), and it is skipped when no version is older than 30 days.
+- `typosquat-suspect`: "much less popular" means the popular package has ≥ 100× the
+  weekly downloads (unknown counts count as 0). The ≤ 1 limit applies when the *popular*
+  name has 5 characters or fewer. Names on the popular list are never flagged, and names
+  in the same scope are never compared (only the scope owner can publish there).
+- `package-not-found` suggests the closest popular name, if any is within the typosquat
+  limits. Every finding run also fills `suggestion.{name,version}` for the hook reason.
+- `known-hallucinated-name` does not short-circuit: the registry checks still run, so
+  a config that allows the name still gets the other findings.
+- Failed lookups never throw: they are returned in `errors[]` next to any findings
+  already made, and the policy engine applies `onError`.
+- The data files ship in `@depward/gate` as `dist/data/*.json`, separate from the
+  bundle (the popular list is CC BY-SA 4.0; ADR 0003). `RegistryCheckOptions.data`
+  overrides them.
 
 ## Tarball checks
 
