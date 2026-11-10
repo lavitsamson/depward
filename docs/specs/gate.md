@@ -185,6 +185,24 @@ Common: --json  --format terminal|json|markdown|sarif  --config <path>  --offlin
 Exit codes: 0 allow · 10 ask · 20 deny · 1 internal error
 ```
 
+How M2.5 reads this (`packages/cli`):
+- Exactly one of `<spec...>` or `--command`. Neither, both, an unknown flag, an unknown
+  `--format`, or `--json` with a different `--format` is a usage error (exit 1, usage on
+  stderr). An invalid spec (`INVALID_ARGUMENT`) and an invalid or missing config file
+  (`INVALID_CONFIG`, `NOT_FOUND`) are exit 1 too. Network failures are never exit 1:
+  they cost `onError`.
+- `--format json` (and `--json`) prints `serializeDecision` from `@depward/gate`
+  (`decisionVersion: 1`): `{ decisionVersion, tool, action, reasons, packages, findings }`,
+  with each finding's `action` and `actionSource`. The MCP server returns the same shape.
+- `terminal`: a decision line, then one block per package listing the causes of a
+  non-allow action (findings and failed lookups). Allowed findings are counted and
+  shown only with `--verbose`, which also appends the full finding report and prints
+  the timing and config source to stderr. `markdown` adds a package/action table to the
+  standard findings report. `sarif` is the standard SARIF report of every finding.
+- `--offline` sets the registry client's `offline`. `DEPWARD_OFFLINE=1` does the same
+  through the client's default. The disk cache follows `DEPWARD_CACHE_DIR`.
+- `config.registry` overrides the `.npmrc` registry.
+
 ## Claude Code hook adapter
 
 **Before implementing, read the current Claude Code hooks documentation**

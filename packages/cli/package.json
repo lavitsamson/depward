@@ -28,6 +28,10 @@
     },
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "@depward/core": "workspace:*",
+    "@depward/gate": "workspace:*"
+  },
   "scripts": {
     "build": "tsdown",
     "check:publish": "publint --strict && attw --pack . --profile esm-only"

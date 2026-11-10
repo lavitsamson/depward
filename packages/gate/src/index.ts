@@ -15,6 +15,14 @@ export { checkPackage, type PackageCheckOptions, type PackageCheckResult } from 
 export { checkCommand, checkSpecs, type Decision, type GateOptions, type PackageDecision } from "./gate.ts";
 export { DEFAULT_ACTIONS, defaultAction, stricter, strictest } from "./policy/actions.ts";
 export {
+  DECISION_JSON_VERSION,
+  decisionFindings,
+  serializeDecision,
+  type DecidedFindingJson,
+  type DecisionJson,
+  type PackageDecisionJson,
+} from "./report.ts";
+export {
   createPolicy,
   type ActionSource,
   type DecidedFinding,
