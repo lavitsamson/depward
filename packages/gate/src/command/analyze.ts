@@ -55,6 +55,18 @@ function truncate(text: string): string {
   return text.length > MAX_SNIPPET ? `${text.slice(0, MAX_SNIPPET)}…` : text;
 }
 
+/** The `non-registry-source` finding for a spec, with `snippet` (the command or the spec) as evidence. */
+export function nonRegistryFinding(spec: NonRegistrySpec, snippet: string): Finding {
+  return {
+    id: "non-registry-source",
+    severity: "medium",
+    package: spec.alias ?? spec.raw,
+    message: `${spec.raw} is installed from ${SOURCE_NAMES[spec.source]}, not the npm registry, so depward can't check it`,
+    evidence: [{ snippet: truncate(snippet) }],
+    docsUrl: findingDocsUrl("non-registry-source"),
+  };
+}
+
 class Analysis {
   readonly requests: PackageRequest[] = [];
   readonly findings: Finding[] = [];
@@ -230,14 +242,7 @@ class Analysis {
     };
     this.requests.push(request);
     if (spec.source !== "registry" && spec.source !== "workspace") {
-      this.findings.push({
-        id: "non-registry-source",
-        severity: "medium",
-        package: name,
-        message: `${raw} is installed from ${SOURCE_NAMES[spec.source]}, not the npm registry, so depward can't check it`,
-        evidence: [{ snippet: truncate(cmd.text) }],
-        docsUrl: findingDocsUrl("non-registry-source"),
-      });
+      this.findings.push(nonRegistryFinding(spec, cmd.text));
     }
     if (r.global) {
       this.findings.push({

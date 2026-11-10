@@ -10,7 +10,10 @@ export type DepwardErrorCode =
   | "GIT"
   | "UNSAFE_PATH"
   | "INTEGRITY_MISMATCH"
-  | "LIMIT_EXCEEDED";
+  | "LIMIT_EXCEEDED"
+  | "INVALID_CONFIG"
+  | "NOT_FOUND"
+  | "OFFLINE";
 
 /** The only error type depward throws. Callers branch on `code`, never on `message`. */
 export class DepwardError extends Error {

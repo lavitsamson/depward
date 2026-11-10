@@ -143,6 +143,36 @@ How M2.3 reads this (`checkTarball`, `checkPackage`):
 - `onError` (network failure, timeout) defaults to **ask**, never silent allow.
   `DEPWARD_OFFLINE=1` runs only cached and offline checks.
 
+How M2.4 reads this (`createPolicy`, `checkSpecs`, `checkCommand`; `src/policy/`):
+- Analyzer signals (approved 2026-11-10) default by severity: critical → deny, high →
+  ask, lower → allow. The exception is `env-sensitive-read` → allow: it still fires on
+  benign environment enumeration (next, debug, esbuild), and the stealer shape is
+  `env-exfil-pattern`, which denies. `install-script` is allowed alone and denied by
+  the escalation. An ID with no default (a future one) falls back to the same
+  severity mapping. Every default is listed in `docs/findings.md`.
+- Order per finding: default → escalations → the config's `policy` override → lists.
+  An explicit `policy` override beats an escalation, because it is the project's own
+  choice. Escalations look only at the same package's findings. "Any critical → deny"
+  applies to every critical finding, not only analyzer signals.
+- Lists: `deny` wins over `allow`. In a name glob, `*` and `?` stay within one
+  segment (`@myorg/*` never matches `@myorg-evil/x`), and `**` crosses `/`. Versions
+  match exactly, as strings: no ranges. Malformed entries are `INVALID_CONFIG`.
+  - An allow-listed package: every finding becomes allow (kept for the report), and
+    `onError` doesn't apply. The registry checks still run (cheap, and they resolve the
+    version for `name@version` entries). The tarball is skipped.
+  - A deny-listed package gets a `denylisted` finding (deny, not overridable), so
+    reports always say why. A name-only deny entry skips every lookup.
+- The tarball is skipped whenever the registry stage already decides the outcome:
+  the package is denied, or allow-listed.
+- `Decision` = `{ action, packages: PackageDecision[], findings, reasons }`. Tokenizer
+  findings attach to the package they name. The rest (`unparseable-command`) are
+  command-level `findings`. `reasons` has one line per non-allow cause, deny first,
+  for the hook's reason text. Duplicate requests (same source, name, range) are
+  checked once. Workspace and non-registry requests are never looked up.
+- `DEPWARD_OFFLINE=1` is implemented in core's registry client (`offline` option): it
+  serves cached data at any age, and uncached data fails with `OFFLINE`, which costs
+  `onError`. Checks that need no network (the hallucinated-name list) still deny.
+
 ## CLI (`depward`)
 
 ```

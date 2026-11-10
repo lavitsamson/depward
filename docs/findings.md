@@ -21,11 +21,14 @@ fix or suppress it, and false-positive notes.
 
 Each signal is emitted at most once per file (or once per package for package-level
 signals), with up to 10 evidence entries. Evidence comes from package content and is
-stripped of control characters and truncated. Severities are defaults; policy may remap.
+stripped of control characters and truncated. Default actions follow severity (critical →
+deny, high → ask, lower → allow), except `env-sensitive-read`, which is allowed: reading a
+token-like variable alone is common in benign code, and the stealer shape is
+`env-exfil-pattern`. The config's `policy` key can change any action.
 
 ### install-script
 
-- **Default severity:** medium
+- **Default severity:** medium (default action: allow; deny together with `package-too-new` or `low-downloads`)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** the package has a `preinstall`, `install`, or `postinstall` script, so it
   runs code when installed. Like npm, a root `binding.gyp` with neither `install` nor
@@ -37,7 +40,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### install-script-network
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** an install script can reach the network: it runs `curl`/`wget`, a Windows
   download tool, or `node -e`; contains a URL; or runs a package JS file that (directly
@@ -49,7 +52,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### env-sensitive-read
 
-- **Default severity:** high
+- **Default severity:** high (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** code reads an environment variable whose name contains `TOKEN`, `SECRET`,
   `KEY`, or `PASSWORD` (any case) or starts with `NPM_`, `AWS_`, `GITHUB_`, `GH_`, or
@@ -63,7 +66,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### env-exfil-pattern
 
-- **Default severity:** critical
+- **Default severity:** critical (default action: deny)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a value from an `env-sensitive-read` flows into a network call in the same
   file: directly in its arguments, through variables, or through a request/socket object
@@ -78,7 +81,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### fs-sensitive-path
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a string literal names a credential location as path segments: `.npmrc`,
   `.ssh` (or `id_rsa`/`id_ed25519`), `.aws`, `.git-credentials`, `.config/gh`, a
@@ -90,7 +93,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### obfuscation
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a file shows obfuscator output: a string-array rotation loop
   (`a.push(a.shift())` in a loop, in a function that calls `parseInt`), more than 30% of
@@ -102,7 +105,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### encoded-payload
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a base64/base64url/hex literal over 1 KB is decoded (`Buffer.from(x,
   "base64"|"hex")`, `atob`) and the result reaches `eval`, `Function`, `vm`, `_compile`,
@@ -113,7 +116,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### high-entropy-string
 
-- **Default severity:** low
+- **Default severity:** low (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a string literal longer than 200 characters has Shannon entropy above 5.2
   bits per character (random-looking data such as keys or encrypted blobs).
@@ -122,7 +125,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### hardcoded-endpoint
 
-- **Default severity:** info
+- **Default severity:** info (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a URL, IP, or hostname literal in JS, or a URL in `package.json` outside
   the documentation fields (`repository`, `homepage`, `bugs`, `author`, `contributors`,
@@ -136,7 +139,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### raw-ip-endpoint
 
-- **Default severity:** medium
+- **Default severity:** medium (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** an IPv4/IPv6 literal (in a URL, as a whole literal, as a `host` value, or
   in a string constant) is passed to a network call (`fetch`, `http(s)`, `net`, `tls`,
@@ -146,7 +149,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### native-binary
 
-- **Default severity:** medium
+- **Default severity:** medium (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** the tarball contains a `.node` addon, an ELF, Mach-O, or PE executable
   (by magic bytes), or a WebAssembly module. Native code cannot be analyzed statically.
@@ -155,7 +158,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### unparseable-file
 
-- **Default severity:** low
+- **Default severity:** low (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a `.js`/`.cjs`/`.mjs` file (or an extensionless `node` shebang script)
   failed to parse as both an ES module and a script, or is too deeply nested to walk, so
@@ -166,7 +169,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### oversized-file
 
-- **Default severity:** low
+- **Default severity:** low (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a JS file is larger than the per-file limit (default 5 MB) and was skipped.
 - **Fix:** review manually, or raise `maxFileBytes`.
@@ -174,7 +177,7 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 
 ### minified-only
 
-- **Default severity:** info
+- **Default severity:** info (default action: allow)
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** every JS file of 512 bytes or more looks minified (a `.min.js` name, an
   average line length over 250 characters, or at most 3 lines and over 2,000 characters),
@@ -391,3 +394,20 @@ downgrade its own result to `onError`.
   config or allow that exact `name@version`.
 - **False positives:** very large legitimate packages (some platform binaries) over
   the size limits.
+
+## Gate: policy (`@depward/gate`)
+
+Emitted by the policy engine (`createPolicy`, `checkSpecs`, `checkCommand`) from the
+project's config, not from the package.
+
+### denylisted
+
+- **Default severity:** high (default action: deny)
+- **Emitted by:** `@depward/gate` (policy engine)
+- **Meaning:** the package matches an entry of the config's `deny` list (a name glob
+  such as `@evil/*`, or an exact `name@version`). The evidence names the entry and the
+  config file. Deny wins over an `allow` entry for the same package, and the `policy`
+  key can't change this action: remove the entry instead. A name-only entry denies
+  without any registry lookup.
+- **Fix:** install something else, or remove the entry from `deny`.
+- **False positives:** none; it's the project's own rule.

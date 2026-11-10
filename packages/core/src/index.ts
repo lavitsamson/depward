@@ -12,6 +12,17 @@ export {
   type Severity,
 } from "./findings.ts";
 export { Secret, redactUrl } from "./secret.ts";
+export {
+  CONFIG_FILE,
+  POLICY_ACTIONS,
+  defaultConfig,
+  loadConfig,
+  parseConfig,
+  type ConfigThresholds,
+  type DepwardConfig,
+  type LoadConfigOptions,
+  type PolicyAction,
+} from "./config.ts";
 export { createDiskCache, createMemoryCache, defaultCacheDir, type Cache, type CacheEntry } from "./cache.ts";
 export { strongestHash, verifyIntegrity } from "./integrity.ts";
 export {

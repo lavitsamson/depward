@@ -74,6 +74,11 @@ export interface RegistryClientOptions {
   limits?: RegistryLimits;
   /** Base URL of the downloads API. Default: https://api.npmjs.org/. */
   downloadsApi?: string;
+  /**
+   * Answer only from the cache, at any age, and never touch the network. Uncached data
+   * fails with `OFFLINE`. Default: `true` when `DEPWARD_OFFLINE=1` in `env`.
+   */
+  offline?: boolean;
   /** Clock, for tests. */
   now?: () => number;
 }
@@ -89,6 +94,7 @@ export function createRegistryClient(opts: RegistryClientOptions = {}): Registry
   const cache = opts.cache === undefined ? createDiskCache() : opts.cache;
   const timeoutMs = opts.timeoutMs ?? 8000;
   const now = opts.now ?? Date.now;
+  const offline = opts.offline ?? (opts.env ?? process.env)["DEPWARD_OFFLINE"] === "1";
   const ttlPackument = opts.ttl?.packument ?? 10 * MINUTE;
   const ttlDownloads = opts.ttl?.downloads ?? 24 * 60 * MINUTE;
   const packumentBytes = opts.limits?.packumentBytes ?? 128 * 1024 * 1024;
@@ -121,6 +127,10 @@ export function createRegistryClient(opts: RegistryClientOptions = {}): Registry
     ns: string, key: string, url: string, ttl: number, maxBytes: number, cfg: NpmConfig | null,
   ): Promise<Uint8Array | null> {
     const cached = await cacheGet(ns, key);
+    if (offline) {
+      if (cached) return cached.body;
+      throw new DepwardError("OFFLINE", `offline mode: ${ns} for ${key} is not cached`);
+    }
     if (cached && now() - cached.storedAt < ttl) return cached.body;
 
     const headers: Record<string, string> = { accept: "application/json", "user-agent": USER_AGENT };
@@ -211,6 +221,7 @@ export function createRegistryClient(opts: RegistryClientOptions = {}): Registry
           }
         }
       }
+      if (offline) throw new DepwardError("OFFLINE", `offline mode: the tarball of ${meta.name}@${meta.version} is not cached`);
       const res = await httpGet(dist.tarball, {
         fetch: doFetch, headers: { "user-agent": USER_AGENT }, timeoutMs, maxBytes: tarballBytes,
         authFor: (u) => authHeaderFor(cfg, u),

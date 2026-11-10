@@ -119,6 +119,19 @@ JSON only, to avoid a dependency. Shape:
 }
 ```
 
+`loadConfig(cwd, { path? })` reads `cwd/depward.config.json`, else the `"depward"` key of
+`cwd/package.json`, else the defaults. Parent directories are not searched. `path`
+(`--config`) reads that file instead, and it must exist (`NOT_FOUND`). `parseConfig`
+validates strictly: unknown keys, unknown thresholds, actions other than
+`allow`/`ask`/`deny`, negative or non-numeric thresholds, non-http(s) registries, and
+files over 1 MB are all `INVALID_CONFIG`. A typo such as `"denny"` must not silently
+drop a deny list. `$schema` is allowed. Core checks the shape only. What the actions
+mean is the gate's policy engine.
+
+Offline mode: `createRegistryClient({ offline })`, default `DEPWARD_OFFLINE=1` in
+`env`, serves cached packuments, downloads, and tarballs at any age, and never touches
+the network. Anything uncached fails with `OFFLINE`.
+
 ## Reporters (M1.5)
 
 Pure functions from `Finding[]` to a string that ends with a newline. Each one sorts its

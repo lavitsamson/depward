@@ -12,6 +12,17 @@ export {
   type SpecSource,
 } from "./command/spec.ts";
 export { checkPackage, type PackageCheckOptions, type PackageCheckResult } from "./check.ts";
+export { checkCommand, checkSpecs, type Decision, type GateOptions, type PackageDecision } from "./gate.ts";
+export { DEFAULT_ACTIONS, defaultAction, stricter, strictest } from "./policy/actions.ts";
+export {
+  createPolicy,
+  type ActionSource,
+  type DecidedFinding,
+  type PackageEvidence,
+  type PackageVerdict,
+  type Policy,
+} from "./policy/engine.ts";
+export { compileList, type ListMatch, type ListMatcher } from "./policy/lists.ts";
 export { checkTarball, type TarballCheckOptions, type TarballCheckResult } from "./tarball/check.ts";
 export {
   checkRegistry,

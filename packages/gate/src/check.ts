@@ -1,7 +1,7 @@
 // One package, end to end: registry checks, then tarball checks on the resolved version.
-// Spec: docs/specs/gate.md §Flow. Turning the findings into allow / ask / deny (and
-// skipping the tarball once a registry finding already denies) is the policy engine's
-// job (M2.4).
+// Spec: docs/specs/gate.md §Flow. Turning the findings into allow / ask / deny is the
+// policy engine's job (policy/engine.ts); `analyzeTarball` lets it skip the tarball
+// when the registry stage already decides the outcome.
 
 import { sortFindings, type DepwardError, type Finding } from "@depward/core";
 import type { PackageProfile } from "@depward/analyzer";
@@ -12,6 +12,8 @@ import { checkTarball, type TarballCheckOptions } from "./tarball/check.ts";
 export interface PackageCheckOptions extends RegistryCheckOptions, Omit<TarballCheckOptions, "registry"> {
   /** Set to `false` to skip downloading and analyzing the tarball. Default `true`. */
   tarball?: boolean;
+  /** Called after the registry stage; return `false` to skip the tarball. Default: always analyze. */
+  analyzeTarball?: (registry: RegistryCheckResult) => boolean;
 }
 
 /** Result of {@link checkPackage}: the registry result, extended with the tarball's. */
@@ -31,7 +33,7 @@ export interface PackageCheckResult extends RegistryCheckResult {
  */
 export async function checkPackage(input: RegistryCheckInput, opts: PackageCheckOptions): Promise<PackageCheckResult> {
   const registry = await checkRegistry(input, opts);
-  if (registry.meta === null || opts.tarball === false) return { ...registry, profile: null };
+  if (registry.meta === null || opts.tarball === false || opts.analyzeTarball?.(registry) === false) return { ...registry, profile: null };
   const tarball = await checkTarball(registry.meta, opts);
   return {
     ...registry,
