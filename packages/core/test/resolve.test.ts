@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isDeprecated, publishTime, resolveVersion, type Packument, type VersionMeta } from "../src/index.ts";
+import { isDeprecated, isPrerelease, publishTime, resolveVersion, type Packument, type VersionMeta } from "../src/index.ts";
 
 function meta(version: string, extra: Partial<VersionMeta> = {}): VersionMeta {
   return { name: "pkg", version, dist: { tarball: `https://registry.npmjs.org/pkg/-/pkg-${version}.tgz` }, ...extra };
@@ -86,12 +86,20 @@ describe("resolveVersion", () => {
   });
 });
 
-describe("publishTime / isDeprecated", () => {
+describe("publishTime / isPrerelease / isDeprecated", () => {
   test("reads times and ignores invalid ones", () => {
     expect(publishTime(doc, "1.0.0")).toBe(Date.parse("2020-01-01T00:00:00.000Z"));
     expect(publishTime(doc, "9.9.9")).toBeNull();
     expect(publishTime({ ...doc, time: { "1.0.0": "garbage" } }, "1.0.0")).toBeNull();
     expect(publishTime(doc, "hasOwnProperty")).toBeNull();
+  });
+
+  test("isPrerelease", () => {
+    expect(isPrerelease("1.0.0-beta.1")).toBe(true);
+    expect(isPrerelease("8.0.0-alpha.14")).toBe(true);
+    expect(isPrerelease("1.0.0")).toBe(false);
+    expect(isPrerelease("1.0.0+build.5")).toBe(false);
+    expect(isPrerelease("not-a-version")).toBe(false);
   });
 
   test("deprecated means a non-empty string", () => {

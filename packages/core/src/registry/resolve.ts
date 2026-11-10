@@ -70,6 +70,11 @@ function better(a: VersionMeta, b: VersionMeta): boolean {
   return semver.gt(a.version, b.version, { loose: true });
 }
 
+/** True for a valid semver version with a prerelease tag (`1.0.0-beta.1`). */
+export function isPrerelease(version: string): boolean {
+  return (semver.prerelease(version, { loose: true })?.length ?? 0) > 0;
+}
+
 /** True when the version carries a non-empty `deprecated` message. */
 export function isDeprecated(meta: VersionMeta): boolean {
   return typeof meta.deprecated === "string" && meta.deprecated !== "";

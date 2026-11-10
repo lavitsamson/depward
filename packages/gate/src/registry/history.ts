@@ -3,19 +3,27 @@
 // "Previous" always means earlier by publish time (`packument.time`), not by semver, so
 // a backport published last is compared with what was published just before it.
 
-import { publishTime, type Packument, type Person, type VersionMeta } from "@depward/core";
+import { isPrerelease, publishTime, type Packument, type Person, type VersionMeta } from "@depward/core";
 
 /** How many earlier versions `publisher-changed` and `provenance-dropped` look at. */
 export const HISTORY_WINDOW = 5;
 
 const DAY = 86_400_000;
 
-/** Versions published before `version`, newest first. Versions without a time are skipped. */
-export function previousVersions(packument: Packument, version: string, limit: number = HISTORY_WINDOW): VersionMeta[] {
+/**
+ * Versions published before `version`, newest first, optionally only those that pass
+ * `keep`. Versions without a time are skipped.
+ */
+export function previousVersions(
+  packument: Packument,
+  version: string,
+  limit: number = HISTORY_WINDOW,
+  keep: (meta: VersionMeta) => boolean = () => true,
+): VersionMeta[] {
   const at = publishTime(packument, version);
   if (at === null) return [];
   return timed(packument)
-    .filter((t) => t.at < at && t.meta.version !== version)
+    .filter((t) => t.at < at && t.meta.version !== version && keep(t.meta))
     .toSorted((a, b) => b.at - a.at)
     .slice(0, limit)
     .map((t) => t.meta);
@@ -126,8 +134,14 @@ export function addedMaintainers(packument: Packument, now: number, days: number
 /**
  * `provenance-dropped`: the version has no attestations, but one of the previous
  * {@link HISTORY_WINDOW} versions did. Returns that earlier version, or `null`.
+ *
+ * A stable version is compared only with earlier stable versions: projects often build
+ * prereleases (`8.0.0-alpha.14`) on a different pipeline than their stable line, and a
+ * stable line that never had provenance hasn't dropped it. A prerelease is compared
+ * with every earlier version, so dropping provenance on either line is still caught.
  */
 export function provenanceDrop(packument: Packument, meta: VersionMeta): VersionMeta | null {
   if (hasAttestations(meta)) return null;
-  return previousVersions(packument, meta.version).find(hasAttestations) ?? null;
+  const sameLine = isPrerelease(meta.version) ? () => true : (m: VersionMeta) => !isPrerelease(m.version);
+  return previousVersions(packument, meta.version, HISTORY_WINDOW, sameLine).find(hasAttestations) ?? null;
 }
