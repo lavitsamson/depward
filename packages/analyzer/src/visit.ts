@@ -19,6 +19,7 @@ import { clean, countAsciiEscapes, findEndpoints, isEncodedBlob, isSensitiveEnvK
 import type { Capability } from "./types.ts";
 import { callsNetObject, isNetCallNode, reaches, valueFlow, type FlowEdge } from "./flow.ts";
 import { calleeName, contains, identifiersIn, isFunction, lineOf, propNameOf, rootIdentifier, shallow, stringish } from "./ast.ts";
+import { Scopes, type ScopeChain } from "./scope.ts";
 import {
   BINDING_CAPS,
   DECODE_ENCODINGS,
@@ -68,6 +69,8 @@ export function analyzeProgram(program: acorn.Program): FileFacts {
 
 class Visitor {
   readonly scope: FileScope;
+  /** Qualifies flow names by declaring scope, so minified `e`s in different functions don't merge. */
+  private readonly scopes = new Scopes();
   readonly facts: FileFacts = {
     uses: [], envKeys: [], envSensitive: [], envExfil: [], sensitivePaths: [], endpoints: [], rawIp: [],
     obfuscation: [], encodedPayloads: [], highEntropy: [], localImports: [],
@@ -86,7 +89,9 @@ class Visitor {
   private readonly envSources: { line: number; detail: string; direct: boolean; viaObjects: string[]; taint?: string }[] = [];
   private readonly netSinks: Set<string>[] = [];
   private readonly netObjects = new Set<string>();
-  private readonly objectCalls: { obj: string; idents: Set<string> }[] = [];
+  // Method calls on any object; their argument names are resolved only if `obj` turns out
+  // to be a network object (rare), which keeps big bundles fast.
+  private readonly objectCalls: { obj: string; idents: Set<string>; chain: ScopeChain }[] = [];
 
   constructor(scope: FileScope) {
     this.scope = scope;
@@ -133,19 +138,20 @@ class Visitor {
         for (const q of node.quasis) this.string(q.value.cooked ?? "", q.value.raw, q, parent, node);
         return;
       case "VariableDeclarator":
-        if (node.id.type === "Identifier" && node.init) this.assigned(node.id.name, node.init);
+        if (node.id.type === "Identifier" && node.init) this.assigned(node.id.name, node.init, anc);
         return;
       case "AssignmentExpression":
-        if (node.left.type === "Identifier") this.assigned(node.left.name, node.right);
+        if (node.left.type === "Identifier") this.assigned(node.left.name, node.right, anc);
         return;
       default:
         return;
     }
   }
 
-  private assigned(name: string, value: Node): void {
-    this.edges.push({ to: name, from: identifiersIn([value]) });
-    if (this.isNetCallNode(unwrap(value))) this.netObjects.add(name);
+  private assigned(name: string, value: Node, anc: Node[]): void {
+    const to = this.scopes.qualify(name, anc);
+    this.edges.push({ to, from: this.scopes.qualifyAll(identifiersIn([value]), anc) });
+    if (this.isNetCallNode(unwrap(value))) this.netObjects.add(to);
   }
 
   private identifier(node: acorn.Identifier, anc: Node[], parent: Node | undefined, type: string): void {
@@ -206,13 +212,16 @@ class Visitor {
     this.rotation(node, callee, args, anc);
     const isNet = this.isNetCallNode(node);
     if (isNet) this.rawIps(node, args);
-    if (isNet || this.callsNetObject(callee)) this.netSinks.push(identifiersIn(args));
+    if (isNet || this.callsNetObject(callee)) this.netSinks.push(this.scopes.qualifyAll(identifiersIn(args), anc));
     else if (callee.type === "MemberExpression") {
       const root = rootIdentifier(callee);
-      if (root !== undefined) this.objectCalls.push({ obj: root, idents: identifiersIn(args) });
+      if (root !== undefined) {
+        const chain = this.scopes.chain(anc);
+        this.objectCalls.push({ obj: Scopes.resolve(root, chain), idents: identifiersIn(args), chain });
+      }
     }
     this.decode(node, name, args, anc);
-    if (this.isSink(node)) this.sinks.push(identifiersIn(args));
+    if (this.isSink(node)) this.sinks.push(this.scopes.qualifyAll(identifiersIn(args), anc));
   }
 
   private importSpec(spec: string, node: acorn.Node, evidence: string): void {
@@ -242,50 +251,60 @@ class Visitor {
         (grand?.type === "UnaryExpression" && grand.operator === "delete");
       return written ? this.use("env", parent, `${label}.${key} (write)`) : this.envRead(key, parent, anc.slice(0, -1));
     }
-    if (parent?.type === "VariableDeclarator" && parent.init === node && parent.id.type === "ObjectPattern") return this.envPattern(parent.id);
-    if (parent?.type === "AssignmentExpression" && parent.right === node && parent.left.type === "ObjectPattern") return this.envPattern(parent.left);
+    if (parent?.type === "VariableDeclarator" && parent.init === node && parent.id.type === "ObjectPattern") return this.envPattern(parent.id, anc);
+    if (parent?.type === "AssignmentExpression" && parent.right === node && parent.left.type === "ObjectPattern") return this.envPattern(parent.left, anc);
     if (parent?.type === "SpreadElement") return this.enumerate(node, `...${label}`, anc);
     if (parent?.type === "ForInStatement" && parent.right === node) return this.enumerate(node, `for…in ${label}`, anc);
     if (parent?.type === "CallExpression" && parent.arguments.includes(node as acorn.Expression)) {
       const fn = calleeName(unwrap(parent.callee as Node));
+      // `Object.assign(process.env, x)` writes into the environment; it doesn't read it.
+      if (fn === "Object.assign" && parent.arguments[0] === node) return this.use("env", node, `Object.assign(${label}, …) (write)`);
       if (fn !== undefined && ENUMERATORS.has(fn)) return this.enumerate(node, `${fn}(${label})`, anc);
     }
     if (label === "process.env") this.use("env", node, label);
   }
 
   /** `anc` ends with `node` for expression reads; destructuring passes `taint` (the target name) instead. */
-  private envRead(key: string, node: acorn.Node, anc?: Node[], taint?: string): void {
+  private envRead(key: string, node: acorn.Node, anc?: Node[], taint?: string, scopeAnc?: Node[]): void {
     this.facts.envKeys.push(key);
     this.use("env", node, `process.env.${key}`);
-    if (isSensitiveEnvKey(key)) this.sensitive(node, clean(`reads process.env.${key}`, 100), anc, taint);
+    if (isSensitiveEnvKey(key)) this.sensitive(node, clean(`reads process.env.${key}`, 100), anc, taint, scopeAnc ?? anc ?? []);
   }
 
   /** Records a sensitive env value and where it flows: into a network call, an object method, or a variable. */
-  private sensitive(node: acorn.Node, detail: string, anc: Node[] | undefined, taint?: string): void {
+  /** `scopeAnc` locates the source for scope resolution (destructuring passes the `process.env` chain). */
+  private sensitive(node: acorn.Node, detail: string, anc: Node[] | undefined, taint?: string, scopeAnc: Node[] = anc ?? []): void {
     const line = lineOf(node);
     this.facts.envSensitive.push({ line, detail });
     const { direct, viaObjects, flow } = valueFlow(node, anc ?? [], this.scope);
     const target = taint ?? flow;
-    this.envSources.push({ line, detail, direct, viaObjects, ...(target === undefined ? {} : { taint: target }) });
+    this.envSources.push({
+      line,
+      detail,
+      direct,
+      viaObjects: viaObjects.map((o) => this.scopes.qualify(o, scopeAnc)),
+      ...(target === undefined ? {} : { taint: this.scopes.qualify(target, scopeAnc) }),
+    });
   }
 
-  private envPattern(p: acorn.ObjectPattern): void {
+  /** `anc` is the ancestor chain of the `process.env` node being destructured. */
+  private envPattern(p: acorn.ObjectPattern, anc: Node[]): void {
     for (const prop of p.properties) {
       if (prop.type === "RestElement") {
-        this.enumerate(prop, "rest destructuring of process.env", undefined, prop.argument.type === "Identifier" ? prop.argument.name : undefined);
+        this.enumerate(prop, "rest destructuring of process.env", undefined, prop.argument.type === "Identifier" ? prop.argument.name : undefined, anc);
       }
       else {
         const key = prop.computed ? staticString(prop.key as Node, this.scope) : propNameOf(prop.key as Node);
         const target = prop.value.type === "AssignmentPattern" ? prop.value.left : prop.value;
-        if (key !== undefined) this.envRead(key, prop, undefined, target.type === "Identifier" ? target.name : undefined);
+        if (key !== undefined) this.envRead(key, prop, undefined, target.type === "Identifier" ? target.name : undefined, anc);
         else this.use("env", prop, "process.env[<expression>]");
       }
     }
   }
 
-  private enumerate(node: acorn.Node, how: string, anc?: Node[], taint?: string): void {
+  private enumerate(node: acorn.Node, how: string, anc?: Node[], taint?: string, scopeAnc?: Node[]): void {
     this.use("env", node, how);
-    this.sensitive(node, clean(`enumerates process.env (${how})`, 100), anc, taint);
+    this.sensitive(node, clean(`enumerates process.env (${how})`, 100), anc, taint, scopeAnc ?? anc ?? []);
   }
 
   // --- strings ---------------------------------------------------------------------
@@ -350,6 +369,7 @@ class Visitor {
       if (a.type === "VariableDeclarator" && a.id.type === "Identifier") taint ??= a.id.name;
       if (a.type === "AssignmentExpression" && a.left.type === "Identifier") taint ??= a.left.name;
     }
+    if (taint !== undefined) taint = this.scopes.qualify(taint, anc);
     this.decodes.push({ line: lineOf(node), inSink, ...(taint === undefined ? {} : { taint }), snippet: `${name ?? "decode"}(<${blob.length}-char literal>)` });
   }
 
@@ -391,7 +411,10 @@ class Visitor {
         f.encodedPayloads.push({ line: d.line, snippet: d.snippet, detail: "decoded and passed to eval, Function, vm, or a write call" });
       }
     }
-    const netSinks = [...this.netSinks, ...this.objectCalls.filter((c) => this.netObjects.has(c.obj)).map((c) => c.idents)];
+    const netSinks = [
+      ...this.netSinks,
+      ...this.objectCalls.filter((c) => this.netObjects.has(c.obj)).map((c) => Scopes.resolveAll(c.idents, c.chain)),
+    ];
     for (const s of this.envSources) {
       const flows = s.direct || s.viaObjects.some((o) => this.netObjects.has(o)) || (s.taint !== undefined && reaches(s.taint, this.edges, netSinks));
       if (flows) f.envExfil.push({ line: s.line, detail: `${s.detail}, which flows into a network call` });

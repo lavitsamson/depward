@@ -210,6 +210,20 @@ describe("env-exfil-pattern follows the value", () => {
     ["websocket send", 'const ws = new WebSocket(u); ws.send(JSON.stringify({ ...process.env }));'],
     ["for…in loop variable", 'for (const k in process.env) fetch(u + k);'],
     ["two-step variable chain", "const all = { ...process.env }; const payload = JSON.stringify(all); fetch(u, { method: 'POST', body: payload });"],
+    // Scopes: a closure shares its outer function's variables.
+    ["read at top level, sent from a callback", 'const t = process.env.NPM_TOKEN; setTimeout(() => fetch(u, { body: t }), 1);'],
+    ["read at top level, sent from a nested function", 'const t = process.env.NPM_TOKEN; function send() { return function () { fetch(u + t); }; }'],
+    ["assigned inside a function to an outer variable", 'let t; function grab() { t = process.env.NPM_TOKEN; } function send() { fetch(u, { body: t }); }'],
+    ["copied with Object.assign then sent", 'const e = Object.assign({}, process.env); fetch(u, { body: JSON.stringify(e) });'],
+    ["minified, same function", "function a(e){let t;for(let r in process.env)t=r;fetch(e,{body:t})}"],
+    ["request object in a callback", 'const t = process.env.NPM_TOKEN; const req = require("https").request(o); process.nextTick(() => req.end(t));'],
+    ["var hoisted out of a nested block", 'function f(x) { if (x) { var t = process.env.NPM_TOKEN; } fetch(u + t); }'],
+    ["exported function closes over a module variable", 'const t = process.env.NPM_TOKEN; export function send() { fetch(u, { body: t }); }'],
+    // Evasion attempts: a block-scoped name elsewhere in the function must not shadow the token.
+    ["dummy catch parameter in the sending function", 'const t = process.env.NPM_TOKEN; function f() { try { g(); } catch (t) {} fetch(u + t); }'],
+    ["dummy let in a nested block", 'const t = process.env.NPM_TOKEN; function f() { { let t = 1; } fetch(u + t); }'],
+    ["dummy for-let loop variable", 'const t = process.env.NPM_TOKEN; function f() { for (let t = 0; t < 1; t++) {} fetch(u + t); }'],
+    ["let in a block that also sends", 'function f() { if (x) { const t = process.env.NPM_TOKEN; fetch(u + t); } }'],
   ])("flags: %s", (_, code) => {
     const p = analyze({ "a.js": code });
     expect(p.signals.map((s) => s.id)).toContain("env-exfil-pattern");
@@ -221,7 +235,26 @@ describe("env-exfil-pattern follows the value", () => {
     ["token checked, unrelated request", 'if (process.env.NPM_TOKEN) console.log("set"); fetch("https://x.example.invalid/");'],
     ["token used locally", 'const t = process.env.GH_TOKEN; console.log(t.length); fetch(u);'],
     ["npm's own lowercase config", 'fetch(u, { headers: { "user-agent": process.env.npm_config_user_agent } });'],
+    // Object.assign(process.env, …) writes into the environment (next's .env loader).
+    ["Object.assign into process.env", 'const h = load(); Object.assign(process.env, h); fetch(u, { body: h });'],
+    // Minified bundles reuse short names in unrelated functions (next's server runtime).
+    ["same minified name in unrelated functions", 'function a(){let e=[];for(let t in process.env)e.push(t);return e}function b(t){return fetch(u,{body:t})}'],
+    ["parameter shadows an outer env copy", 'const e = { ...process.env }; function send(e) { fetch(u, { body: e }); } send(1);'],
+    ["callback parameter shadows a token variable", 'const t = process.env.NPM_TOKEN; list.forEach((t) => fetch(u + t));'],
+    ["catch parameter shadows a token variable", 'const t = process.env.NPM_TOKEN; function f() { try { g(); } catch (t) { fetch(u + t); } }'],
+    ["let in a sibling block", 'function f() { if (x) { const t = process.env.NPM_TOKEN; log(t); } else { const t = load(); fetch(u + t); } }'],
   ])("does not flag: %s", (_, code) => {
     expect(analyze({ "a.js": code }).signals.map((s) => s.id)).not.toContain("env-exfil-pattern");
+  });
+
+  test("an Object.assign write is an env use, not a sensitive read", () => {
+    const p = analyze({ "a.js": "Object.assign(process.env, loaded);" });
+    expect(p.signals.map((s) => s.id)).not.toContain("env-sensitive-read");
+    expect(p.capabilities.env.map((u) => u.evidence)).toEqual(["Object.assign(process.env, …) (write)"]);
+  });
+
+  test("the shadowed and unrelated cases still report the sensitive read itself", () => {
+    const p = analyze({ "a.js": 'function a(){let e=[];for(let t in process.env)e.push(t);return e}function b(t){return fetch(u,{body:t})}' });
+    expect(p.signals.map((s) => s.id)).toContain("env-sensitive-read");
   });
 });

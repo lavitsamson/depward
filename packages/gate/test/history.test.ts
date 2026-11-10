@@ -1,22 +1,26 @@
 import type { Packument, VersionMeta } from "@depward/core";
 import { describe, expect, test } from "vitest";
-import { publisherChange } from "../src/registry/history.ts";
+import { provenanceDrop, publisherChange } from "../src/registry/history.ts";
 
 interface V {
   v: string;
   at: string;
   by: string;
   maintainers?: string[];
+  attest?: boolean;
 }
 
 function doc(versions: V[]): Packument {
   const out: Record<string, VersionMeta> = {};
   const time: Record<string, string> = {};
-  for (const { v, at, by, maintainers } of versions) {
+  for (const { v, at, by, maintainers, attest } of versions) {
     out[v] = {
       name: "pkg",
       version: v,
-      dist: { tarball: `https://registry.npmjs.org/pkg/-/pkg-${v}.tgz` },
+      dist: {
+        tarball: `https://registry.npmjs.org/pkg/-/pkg-${v}.tgz`,
+        ...(attest ? { attestations: { url: `https://registry.npmjs.org/-/npm/v1/attestations/pkg@${v}` } } : {}),
+      },
       _npmUser: { name: by },
       ...(maintainers ? { maintainers: maintainers.map((name) => ({ name })) } : {}),
     };
@@ -98,5 +102,60 @@ describe("publisherChange", () => {
       { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "" },
     ]);
     expect(check(anon, "1.0.1")).toBeNull();
+  });
+});
+
+const drop = (p: Packument, v: string) => provenanceDrop(p, p.versions[v] as VersionMeta)?.version ?? null;
+
+describe("provenanceDrop", () => {
+
+  test("a stable release after attested stable releases", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "a", attest: true },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "a" },
+    ]);
+    expect(drop(p, "1.0.1")).toBe("1.0.0");
+  });
+
+  test("a stable line that never had provenance, next to attested prereleases (rxjs@7.8.2)", () => {
+    const p = doc([
+      { v: "7.8.1", at: "2023-04-01T00:00:00Z", by: "a" },
+      { v: "8.0.0-alpha.13", at: "2023-12-20T00:00:00Z", by: "a", attest: true },
+      { v: "8.0.0-alpha.14", at: "2024-01-12T00:00:00Z", by: "a", attest: true },
+      { v: "7.8.2", at: "2025-02-22T00:00:00Z", by: "a" },
+    ]);
+    expect(drop(p, "7.8.2")).toBeNull();
+  });
+
+  test("a stable release that drops provenance is caught across interleaved prereleases", () => {
+    const p = doc([
+      { v: "2.0.0", at: "2024-01-01T00:00:00Z", by: "a", attest: true },
+      { v: "3.0.0-beta.1", at: "2024-02-01T00:00:00Z", by: "a" },
+      { v: "3.0.0-beta.2", at: "2024-03-01T00:00:00Z", by: "a" },
+      { v: "2.0.1", at: "2024-04-01T00:00:00Z", by: "a" },
+    ]);
+    expect(drop(p, "2.0.1")).toBe("2.0.0");
+  });
+
+  test("a prerelease is compared with every earlier version", () => {
+    const fromStable = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "a", attest: true },
+      { v: "1.1.0-rc.1", at: "2024-02-01T00:00:00Z", by: "a" },
+    ]);
+    expect(drop(fromStable, "1.1.0-rc.1")).toBe("1.0.0");
+    const fromPre = doc([
+      { v: "1.1.0-rc.1", at: "2024-01-01T00:00:00Z", by: "a", attest: true },
+      { v: "1.1.0-rc.2", at: "2024-02-01T00:00:00Z", by: "a" },
+    ]);
+    expect(drop(fromPre, "1.1.0-rc.2")).toBe("1.1.0-rc.1");
+  });
+
+  test("an attested version, or one with no attested history, is not a drop", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "a" },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "a", attest: true },
+    ]);
+    expect(drop(p, "1.0.0")).toBeNull();
+    expect(drop(p, "1.0.1")).toBeNull();
   });
 });

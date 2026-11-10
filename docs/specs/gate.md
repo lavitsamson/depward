@@ -83,7 +83,9 @@ How M2.2 reads the table (`checkRegistry`, `src/registry/`):
   the requested range, else the newest old-enough version overall (labelled "outside
   the requested range").
 - "Previous versions" means earlier by publish time, not by semver. `publisher-changed`
-  and `provenance-dropped` look at the previous 5.
+  and `provenance-dropped` look at the previous 5. For a stable version,
+  `provenance-dropped` counts only earlier stable versions (approved 2026-11-10, after
+  rxjs@7.8.2 was flagged because of its attested 8.0 alphas); a prerelease counts all.
 - Approved changes (2026-11-10), made after the live run:
   - `publisher-changed` exempts established maintainers. typescript@7.0.2 was flagged
     only because its CI account, listed for months, had not published in the last 5

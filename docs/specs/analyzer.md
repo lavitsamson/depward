@@ -132,6 +132,13 @@ open for review.
   `https.request(o).end(v)`). Flow across function calls and returns is not tracked, so a
   token read in one function and sent from another is not `critical` (it is still
   `env-sensitive-read`, and Phase 3's diff flags a new env read plus new network use).
+- **Flow names are scoped** (changed 2026-11-10 after next@16.4.6 was flagged `critical`
+  through name collisions in its minified server runtime): every variable in a flow is
+  matched by the scope that declares it, using JavaScript's rules. Scopes are the
+  program, functions (parameters, `var`, hoisted functions), and blocks, `for (let …)`,
+  `catch`, and `switch` for `let` / `const` / `class`. Block scopes are exact, not folded
+  into the function, so a dummy `catch (t) {}` can't split a stealer's flow.
+  `Object.assign(process.env, x)` (first argument) is a write, not an enumeration.
 - **`endpoints`** holds normalized URLs (`scheme://host[:port]/path`, query dropped),
   hosts, or IPs. The exclusion list for `hardcoded-endpoint` (and for `endpoints`) is in
   `docs/findings.md`. `.invalid` hosts are kept, because fixtures use them.

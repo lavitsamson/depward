@@ -67,8 +67,11 @@ stripped of control characters and truncated. Severities are defaults; policy ma
 - **Emitted by:** `@depward/analyzer`
 - **Meaning:** a value from an `env-sensitive-read` flows into a network call in the same
   file: directly in its arguments, through variables, or through a request/socket object
-  (`req.write`, `ws.send`). This is the shape of a token stealer. Flow through function
-  calls and returns is not followed.
+  (`req.write`, `ws.send`). This is the shape of a token stealer. Variables are matched
+  by the scope that declares them, as JavaScript does, so a minified `e` in one function
+  is not the `e` in another, while a callback still sees its outer function's `token`.
+  Flow through function calls and returns is not followed. `Object.assign(process.env, x)`
+  writes into the environment and is not a read.
 - **Fix:** treat as malicious until reviewed. Do not install.
 - **False positives:** SDKs that read their own API key from the environment and call
   their own API. Review the endpoint in the evidence.
@@ -333,8 +336,11 @@ the error instead of a finding, and the policy engine applies `onError` (default
 - **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/gate` (`checkRegistry`)
 - **Meaning:** the resolved version has no provenance attestation, but at least one of
-  the previous 5 versions (by publish time) had one. A release from a stolen token is
-  usually published from a laptop, not the project's CI. Attestations are detected by
+  the previous 5 versions (by publish time) had one. A stable version is compared only
+  with earlier stable versions, because projects often build prereleases on a different
+  pipeline (rxjs's 8.0 alphas had provenance; its 7.x line never did). A prerelease is
+  compared with every earlier version. A release from a stolen token is usually
+  published from a laptop, not the project's CI. Attestations are detected by
   presence only; they are not cryptographically verified yet.
 - **Fix:** use the last version with provenance until the maintainers explain the change.
 - **False positives:** a maintainer publishing manually once (for example a hotfix).

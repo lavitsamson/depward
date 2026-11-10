@@ -37,6 +37,8 @@ describe("live registry checks", () => {
     ["@types/node", "22.15.3"],
     // First release by microsoft1es, a maintainer listed for months before: established.
     ["typescript", "7.0.2"],
+    // Stable line never had provenance; only its 8.0 alphas did. Not a drop.
+    ["rxjs", "7.8.2"],
   ])("an old release of %s@%s has no findings", async (name, version) => {
     const r = await check(name, version);
     expect(r.errors).toEqual([]);
