@@ -276,6 +276,26 @@ Tools:
 Tool descriptions should tell the agent to call `check_install_command` *before* running
 any install, and to prefer suggested alternatives when the result is `deny`.
 
+How M2.7 reads this (`packages/mcp`; SDK v2, ADR 0004; API checked 2026-11-10 at
+https://ts.sdk.modelcontextprotocol.io/v2/):
+- SDK: `@modelcontextprotocol/server@2.4.0`, `zod@4.6.7` (`zod/v4`), served with
+  `serveStdio`. The binary is `depward-mcp [--config <path>] [--offline]`.
+- Both tools are annotated `readOnlyHint: true`, `destructiveHint: false`,
+  `idempotentHint: true`, `openWorldHint: true`. Input: `command` (1–10,000 chars), or
+  `specs` (1–50 specs, each up to 500 chars). The server's `instructions` repeat when to
+  call it.
+- Result: `structuredContent` is `serializeDecision` (the CLI's `--json`), declared
+  by `outputSchema`. The text block is for the model: the decision line, every reason,
+  a "Suggested instead of X: Y" line per non-allow package with a suggestion, and what
+  to do next (deny: don't run it; ask: tell the user).
+- An invalid spec or config is a tool error (`isError: true`, `depward: CODE: …`), not
+  a protocol error. A lookup failure is not an error: it costs `onError`, as in the CLI.
+- The config is re-read on every call, so edits apply without a restart. A broken
+  config at startup exits 1 before serving. One registry client lives for the server's
+  lifetime (shared in-memory cache), and `preloadAnalyzer()` runs before serving.
+  There is no time budget beyond the registry's per-request timeouts, because MCP calls
+  are not in the agent's hot path the way the hook is.
+
 ## Data files
 
 - `data/popular-packages.json`: about 10,000 names with weekly download counts. It is
