@@ -1,0 +1,14 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`check: output formats > terminal output 1`] = `
+"depward: deny (3 packages: 1 deny, 1 ask, 1 allow)
+
+  ALLOW  depward-fixture-stable@2.0.0
+
+  ASK    github:example/repo
+         non-registry-source: github:example/repo is installed from a git repository, not the npm registry, so depward can't check it
+
+  DENY   depward-fixture-missing@latest
+         package-not-found: depward-fixture-missing does not exist on the registry. It may be a typo or a name an AI model made up.
+"
+`;

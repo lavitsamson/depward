@@ -212,7 +212,14 @@ importers:
         specifier: 8.3.5
         version: 8.3.5
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@depward/core':
+        specifier: workspace:*
+        version: link:../core
+      '@depward/gate':
+        specifier: workspace:*
+        version: link:../gate
 
   packages/core:
     dependencies:
