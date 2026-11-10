@@ -1,0 +1,40 @@
+{
+  "_id": "depward-fixture-stabel",
+  "name": "depward-fixture-stabel",
+  "description": "Synthetic, inert fixture: a name two edits away from depward-fixture-stable.",
+  "dist-tags": {
+    "latest": "2.0.1"
+  },
+  "maintainers": [
+    {
+      "name": "fixture-squatter",
+      "email": "fixture-squatter@example.invalid"
+    }
+  ],
+  "time": {
+    "created": "2025-11-01T10:00:00.000Z",
+    "modified": "2025-11-01T10:00:00.000Z",
+    "2.0.1": "2025-11-01T10:00:00.000Z"
+  },
+  "versions": {
+    "2.0.1": {
+      "name": "depward-fixture-stabel",
+      "version": "2.0.1",
+      "_npmUser": {
+        "name": "fixture-squatter",
+        "email": "fixture-squatter@example.invalid"
+      },
+      "maintainers": [
+        {
+          "name": "fixture-squatter",
+          "email": "fixture-squatter@example.invalid"
+        }
+      ],
+      "dist": {
+        "tarball": "https://registry.npmjs.org/depward-fixture-stabel/-/depward-fixture-stabel-2.0.1.tgz",
+        "integrity": "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "shasum": "0000000000000000000000000000000000000000"
+      }
+    }
+  }
+}

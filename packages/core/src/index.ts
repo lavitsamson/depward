@@ -43,6 +43,7 @@ export {
   type Person,
   type VersionMeta,
 } from "./registry/types.ts";
+export { isDeprecated, publishTime, resolveVersion, type ResolveOptions } from "./registry/resolve.ts";
 export { readTarball, type PackageFile, type PackageFiles, type PackageLink, type TarLimits } from "./tar.ts";
 export { diffLockfiles, parseLockfile, type LockfileChange, type LockfileDiff } from "./lockfile/index.ts";
 export {

@@ -56,6 +56,9 @@ We considered these options:
   declares `"license": "CC-BY-SA-4.0"`, and `data/README.md` says so. The code stays
   MIT; only this data file carries the share-alike license. If `@depward/gate` bundles
   the file (decided in M2.2), the package README must repeat the credit and license.
+  **M2.2 (2026-11-10):** it does. The build copies both data files to
+  `packages/gate/dist/data/` as separate JSON files, not inlined into the JavaScript
+  bundle, so the license boundary stays at the file. The gate README repeats the credit.
 - A refresh needs two third-party services and takes about 1.5 hours. Nearly half of
   the candidates are scoped and need one request each, and npm's download API returns
   429 after about 20 quick requests (with `retry-after: 0`). So the script is a

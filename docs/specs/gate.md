@@ -68,6 +68,39 @@ changes are diff's job.
 | `deprecated` | low | `deprecated` field is set |
 | `non-registry-source` | ask | from the tokenizer |
 
+How M2.2 reads the table (`checkRegistry`, `src/registry/`):
+- Severities: `known-hallucinated-name` critical; `package-not-found`,
+  `version-not-found`, `typosquat-suspect`, `provenance-dropped` high;
+  `version-too-new`, `package-too-new`, `low-downloads`, `publisher-changed` medium;
+  `maintainer-added-recently`, `deprecated` low. Actions come from the policy engine's
+  per-ID defaults in the table above, not from severity. The engine (M2.4) also owns
+  every escalation (`low-downloads` + `package-too-new` → deny).
+- Range resolution follows npm (npm-pick-manifest): a dist-tag names its version;
+  for a range, `latest` wins when it satisfies, otherwise the highest satisfying
+  version, preferring non-deprecated ones. `resolveVersion` lives in `@depward/core`
+  (the only package allowed to use `semver`).
+- The suggested version for `version-too-new` is the newest old-enough version within
+  the requested range, else the newest old-enough version overall (labelled "outside
+  the requested range").
+- "Previous versions" means earlier by publish time, not by semver. `publisher-changed`
+  and `provenance-dropped` look at the previous 5.
+- `maintainer-added-recently` compares per-version `maintainers` of versions published
+  in the last 30 days with the newest version older than that. It is package-level
+  (no `version`), and it is skipped when no version is older than 30 days.
+- `typosquat-suspect`: "much less popular" means the popular package has ≥ 100× the
+  weekly downloads (unknown counts count as 0). The ≤ 1 limit applies when the *popular*
+  name has 5 characters or fewer. Names on the popular list are never flagged, and names
+  in the same scope are never compared (only the scope owner can publish there).
+- `package-not-found` suggests the closest popular name, if any is within the typosquat
+  limits. Every finding run also fills `suggestion.{name,version}` for the hook reason.
+- `known-hallucinated-name` does not short-circuit: the registry checks still run, so
+  a config that allows the name still gets the other findings.
+- Failed lookups never throw: they are returned in `errors[]` next to any findings
+  already made, and the policy engine applies `onError`.
+- The data files ship in `@depward/gate` as `dist/data/*.json`, separate from the
+  bundle (the popular list is CC BY-SA 4.0; ADR 0003). `RegistryCheckOptions.data`
+  overrides them.
+
 ## Tarball checks
 
 Run the analyzer and map its signals to findings one-to-one. Escalations:
