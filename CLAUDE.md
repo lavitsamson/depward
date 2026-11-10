@@ -57,7 +57,8 @@ you can't fix it, say so plainly. Never weaken or delete a test to make it pass.
    - `acorn` and `acorn-walk` (analyzer)
    - `semver` (core)
    - `yaml` (core, for pnpm and yarn-berry lockfiles)
-   - `@modelcontextprotocol/sdk` and its peer `zod` (**only** in `@depward/mcp`)
+   - `@modelcontextprotocol/server` (with its `@modelcontextprotocol/core`) and `zod`
+     (**only** in `@depward/mcp`; SDK v2, ADR 0004)
 
    Adding any other runtime dependency needs an ADR and the user's approval. Prefer
    writing 50 lines of code over adding a dependency. Dev dependencies are freer, but
