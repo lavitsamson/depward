@@ -94,7 +94,7 @@ files from M2.9).
 - [x] M2.2 Registry checks (existence, age, downloads, typosquat, hallucination list,
       maintainer, provenance, deprecation)
 - [x] M2.3 Tarball checks via analyzer (install scripts, capabilities, obfuscation)
-- [ ] M2.4 Policy engine and config file. Decision is `allow`, `ask`, or `deny`, with
+- [x] M2.4 Policy engine and config file. Decision is `allow`, `ask`, or `deny`, with
       reasons
 - [ ] M2.5 CLI: `depward check <spec...>`, `depward check --command "<shell>"`
 - [ ] M2.6 Claude Code PreToolUse hook adapter (`depward hook claude`)

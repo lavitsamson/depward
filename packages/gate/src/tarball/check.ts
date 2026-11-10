@@ -4,7 +4,7 @@
 // Spec: docs/specs/gate.md §Tarball checks. Finding catalog: docs/findings.md.
 //
 // Escalations (install-script + package-too-new or low-downloads → deny, any critical →
-// deny) belong to the policy engine (M2.4), like the registry-check escalations.
+// deny) belong to the policy engine (policy/engine.ts), like the registry ones.
 
 import { analyzePackage, profileFindings, type AnalyzeOptions, type PackageProfile } from "@depward/analyzer";
 import {

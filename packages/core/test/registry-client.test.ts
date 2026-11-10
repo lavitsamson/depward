@@ -132,6 +132,43 @@ describe("caching", () => {
   });
 });
 
+describe("offline mode", () => {
+  test("serves cached data at any age, fails uncached data with OFFLINE, and never fetches", async () => {
+    const c = clock();
+    const cache = createMemoryCache();
+    const fx = createFixtureFetch(FIXTURES);
+    const online = createRegistryClient({ fetch: fx.fetch, cache, now: c.now, npmConfig: npmConfigFrom() });
+    const meta = (await online.versionMeta("depward-fixture-stable", "2.0.0"))!;
+    await online.weeklyDownloads("depward-fixture-stable");
+    const bytes = await online.tarball(meta);
+    const before = fx.requests.length;
+
+    c.advance(30 * 24 * 60 * MIN); // far past every TTL
+    const offline = createRegistryClient({ fetch: fx.fetch, cache, now: c.now, npmConfig: npmConfigFrom(), offline: true });
+    expect((await offline.packument("depward-fixture-stable"))?.name).toBe("depward-fixture-stable");
+    expect(await offline.weeklyDownloads("depward-fixture-stable")).toBe(1234567);
+    expect(await offline.tarball(meta)).toEqual(bytes);
+
+    const err = await offline.packument("depward-fixture-fresh").catch((e: unknown) => e);
+    expect(isDepwardError(err, "OFFLINE")).toBe(true);
+    const tgz = await offline.tarball({ ...meta, version: "9.9.9", dist: { ...meta.dist, integrity: `sha512-${"B".repeat(86)}==` } }).catch((e: unknown) => e);
+    expect(isDepwardError(tgz, "OFFLINE")).toBe(true);
+    expect(fx.requests).toHaveLength(before);
+  });
+
+  test("DEPWARD_OFFLINE=1 turns it on by default; an explicit option wins", async () => {
+    const fx = createFixtureFetch(FIXTURES);
+    const env = { DEPWARD_OFFLINE: "1" };
+    const byEnv = createRegistryClient({ fetch: fx.fetch, cache: createMemoryCache(), npmConfig: npmConfigFrom(), env });
+    expect(isDepwardError(await byEnv.packument("depward-fixture-stable").catch((e: unknown) => e), "OFFLINE")).toBe(true);
+    const forced = createRegistryClient({ fetch: fx.fetch, cache: createMemoryCache(), npmConfig: npmConfigFrom(), env, offline: false });
+    expect((await forced.packument("depward-fixture-stable"))?.name).toBe("depward-fixture-stable");
+    const other = createRegistryClient({ fetch: fx.fetch, cache: createMemoryCache(), npmConfig: npmConfigFrom(), env: { DEPWARD_OFFLINE: "0" } });
+    expect((await other.packument("depward-fixture-stable"))?.name).toBe("depward-fixture-stable");
+    expect(fx.requests).toHaveLength(2);
+  });
+});
+
 describe("weeklyDownloads", () => {
   test("reads the point endpoint, with scoped names unencoded", async () => {
     const client = createFixtureRegistryClient(FIXTURES);

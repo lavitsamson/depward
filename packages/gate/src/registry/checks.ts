@@ -2,8 +2,8 @@
 // Spec: docs/specs/gate.md §Registry checks. Finding catalog: docs/findings.md.
 //
 // Findings carry a severity only. Turning findings into allow / ask / deny, including
-// the escalations (low-downloads + package-too-new → deny), is the policy engine's job
-// (M2.4), so config overrides apply in one place.
+// the escalations (low-downloads + package-too-new → deny), is the policy engine.s job
+// (policy/engine.ts), so config overrides apply in one place.
 
 import {
   DepwardError,
