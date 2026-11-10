@@ -22,6 +22,10 @@ export interface Io {
   now?: () => number;
   /** Overrides for the gate (registry client, data files, clock), for tests. */
   gate?: Partial<GateOptions>;
+  /** Reads all of stdin. Default: `process.stdin`, up to 1 MB. */
+  stdin?: () => Promise<string>;
+  /** Time budget of `depward hook` in ms. Default 4000. */
+  hookBudgetMs?: number;
 }
 
 /** {@link Io} with defaults filled in. */

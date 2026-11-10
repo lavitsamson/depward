@@ -1,4 +1,4 @@
-import { parseAllDocuments, parse as parseYaml } from "yaml";
+import { yaml as yamlLib } from "../lazy.ts";
 import { DepwardError } from "../errors.ts";
 import { findingDocsUrl, type Finding } from "../findings.ts";
 import { parseBun, parseJsonc } from "./bun.ts";
@@ -66,11 +66,11 @@ export function parseLockfile(path: string, contents: string, opts: ParseLockfil
 const MAX_ALIASES = 50;
 
 function yaml(text: string): unknown {
-  return parseYaml(text, { maxAliasCount: MAX_ALIASES, uniqueKeys: false });
+  return yamlLib().parse(text, { maxAliasCount: MAX_ALIASES, uniqueKeys: false });
 }
 
 function yamlDocuments(text: string): unknown[] {
-  const docs = parseAllDocuments(text, { uniqueKeys: false });
+  const docs = yamlLib().parseAllDocuments(text, { uniqueKeys: false });
   if (!Array.isArray(docs) || docs.length === 0) throw new Error("no YAML documents");
   return docs.map((doc) => {
     const [error] = doc.errors;

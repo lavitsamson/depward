@@ -4,8 +4,8 @@
 import { fileURLToPath } from "node:url";
 import { DepwardError, createMemoryCache, parseConfig, type RegistryClient } from "@depward/core";
 import { createFixtureRegistryClient } from "@depward/core/testing";
-import { describe, expect, test } from "vitest";
-import { checkCommand, checkSpecs, createGateData, createPolicy, type Decision, type GateOptions } from "../src/index.ts";
+import { beforeAll, describe, expect, test } from "vitest";
+import { checkCommand, checkSpecs, createGateData, createPolicy, preloadAnalyzer, type Decision, type GateOptions } from "../src/index.ts";
 
 const FIXTURES = fileURLToPath(new URL("../../../fixtures/registry", import.meta.url));
 const NOW = Date.parse("2026-11-10T12:00:00.000Z");
@@ -22,6 +22,11 @@ const data = createGateData(
     suggestion: "depward-fixture-stable",
   }],
 );
+
+// The analyzer loads on first use; load it up front so its one-time transform isn't timed.
+beforeAll(async () => {
+  await preloadAnalyzer();
+});
 
 type Fixtures = ReturnType<typeof createFixtureRegistryClient>;
 const fixtures = (): Fixtures => createFixtureRegistryClient(FIXTURES);

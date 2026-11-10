@@ -5,7 +5,7 @@
 // Engines and platform filtering are not applied: the gate checks what *would* be
 // installed by default, and those rarely change the pick.
 
-import semver from "semver";
+import { semver } from "../lazy.ts";
 import type { Packument, VersionMeta } from "./types.ts";
 
 /** Options for {@link resolveVersion}. */
@@ -42,20 +42,20 @@ export function resolveVersion(packument: Packument, spec: string, opts: Resolve
 
   const wanted = spec.trim() === "" ? "*" : spec.trim();
   // npm refuses dist-tags that are valid ranges, so a tag name never shadows a range.
-  if (Object.hasOwn(tags, wanted) && semver.validRange(wanted, { loose: true }) === null) {
+  if (Object.hasOwn(tags, wanted) && semver().validRange(wanted, { loose: true }) === null) {
     const target = tags[wanted];
     return target !== undefined && eligible(target) ? (versions[target] ?? null) : null;
   }
-  if (semver.validRange(wanted, { loose: true }) === null) return null;
+  if (semver().validRange(wanted, { loose: true }) === null) return null;
 
   const latest = Object.hasOwn(tags, "latest") ? tags["latest"] : undefined;
-  if (latest !== undefined && eligible(latest) && semver.satisfies(latest, wanted, { loose: true })) {
+  if (latest !== undefined && eligible(latest) && semver().satisfies(latest, wanted, { loose: true })) {
     return versions[latest] ?? null;
   }
 
   let best: VersionMeta | null = null;
   for (const v of Object.keys(versions)) {
-    if (!eligible(v) || semver.valid(v, { loose: true }) === null || !semver.satisfies(v, wanted, { loose: true })) continue;
+    if (!eligible(v) || semver().valid(v, { loose: true }) === null || !semver().satisfies(v, wanted, { loose: true })) continue;
     const meta = versions[v];
     if (meta === undefined) continue;
     if (best === null || better(meta, best)) best = meta;
@@ -67,12 +67,12 @@ function better(a: VersionMeta, b: VersionMeta): boolean {
   const aDep = isDeprecated(a);
   const bDep = isDeprecated(b);
   if (aDep !== bDep) return bDep;
-  return semver.gt(a.version, b.version, { loose: true });
+  return semver().gt(a.version, b.version, { loose: true });
 }
 
 /** True for a valid semver version with a prerelease tag (`1.0.0-beta.1`). */
 export function isPrerelease(version: string): boolean {
-  return (semver.prerelease(version, { loose: true })?.length ?? 0) > 0;
+  return (semver().prerelease(version, { loose: true })?.length ?? 0) > 0;
 }
 
 /** True when the version carries a non-empty `deprecated` message. */
