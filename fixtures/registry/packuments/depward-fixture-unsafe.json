@@ -1,0 +1,42 @@
+{
+  "_id": "depward-fixture-unsafe",
+  "name": "depward-fixture-unsafe",
+  "description": "Synthetic, inert fixture: an old package whose tarball has a path-traversal entry.",
+  "dist-tags": {
+    "latest": "1.0.0"
+  },
+  "maintainers": [
+    {
+      "name": "fixture-unsafe",
+      "email": "unsafe@example.invalid"
+    }
+  ],
+  "time": {
+    "created": "2023-05-01T10:00:00.000Z",
+    "modified": "2023-05-01T10:00:00.000Z",
+    "1.0.0": "2023-05-01T10:00:00.000Z"
+  },
+  "versions": {
+    "1.0.0": {
+      "name": "depward-fixture-unsafe",
+      "version": "1.0.0",
+      "_npmUser": {
+        "name": "fixture-unsafe",
+        "email": "unsafe@example.invalid"
+      },
+      "maintainers": [
+        {
+          "name": "fixture-unsafe",
+          "email": "unsafe@example.invalid"
+        }
+      ],
+      "dist": {
+        "tarball": "https://registry.npmjs.org/depward-fixture-unsafe/-/depward-fixture-unsafe-1.0.0.tgz",
+        "integrity": "sha512-/RJc0Q+wLi16GVfPMJZ7K9FMmZM/0vTszf88Cn49TUF1CEOVlOtIHAl2Jcj5STlBb6ScKV5U50tCZmsV2wqUiA==",
+        "shasum": "06bc392704c17fa987dfe0707a0bc37402ed0ad8",
+        "fileCount": 2,
+        "unpackedSize": 108
+      }
+    }
+  }
+}

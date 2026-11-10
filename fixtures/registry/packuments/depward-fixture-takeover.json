@@ -197,8 +197,10 @@
       ],
       "dist": {
         "tarball": "https://registry.npmjs.org/depward-fixture-takeover/-/depward-fixture-takeover-1.1.0.tgz",
-        "integrity": "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-        "shasum": "0000000000000000000000000000000000000000"
+        "integrity": "sha512-/UskgOAmmCGZAA/MTBWo1M3Vt2fMgtsSvbh7e4Hp6nUM5nlWCau9SOC0wYFCl6tLvWcplRs6fLJdLFRzhJG3WA==",
+        "shasum": "d83ca1557a0db35b85009cde170f5d85633d6c84",
+        "fileCount": 3,
+        "unpackedSize": 389
       }
     }
   }

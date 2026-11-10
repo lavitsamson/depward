@@ -348,3 +348,40 @@ the error instead of a finding, and the policy engine applies `onError` (default
   the resolver already prefers non-deprecated ones, as npm does.
 - **Fix:** follow the deprecation message, usually by upgrading.
 - **False positives:** none; it's a note.
+
+## Gate: tarball checks (`@depward/gate`)
+
+Emitted by `checkTarball` (and `checkPackage`), which downloads the resolved version's
+tarball, verifies it against the registry's integrity hash, reads it in memory, and runs
+the analyzer. Every analyzer signal above becomes a finding with the same ID and
+severity, reported under the requested package name and version (never the archive's
+own `package.json`). Escalations (`install-script` together with `package-too-new` or
+`low-downloads` → deny, and any `critical` → deny) are applied by the policy engine.
+Network failures and timeouts are returned as errors, and the policy engine applies
+`onError`. Problems with the archive itself are findings, so a crafted archive can't
+downgrade its own result to `onError`.
+
+### tarball-integrity-mismatch
+
+- **Default severity:** critical (default action: deny)
+- **Emitted by:** `@depward/gate` (`checkTarball`)
+- **Meaning:** the downloaded tarball doesn't match the `dist.integrity` (or
+  `dist.shasum`) the registry published for the version, or the version has no usable
+  hash. The bytes may have been tampered with between the registry and you: a proxy,
+  a mirror, or a poisoned cache. Nothing in the archive was analyzed.
+- **Fix:** don't install it. Retry from the public registry, and check proxies,
+  mirrors, and the depward cache directory.
+- **False positives:** a misbehaving registry mirror that rewrites tarballs.
+
+### tarball-unsafe
+
+- **Default severity:** high (default action: deny)
+- **Emitted by:** `@depward/gate` (`checkTarball`)
+- **Meaning:** the archive can't be analyzed safely, so nothing in it was checked. It
+  contains entries with absolute paths, `..`, or links pointing outside the package;
+  it is corrupt or has no readable `package.json` object; or it exceeds a limit
+  (50 MB compressed, 200 MB unpacked, 20,000 entries). The evidence `detail` says which.
+- **Fix:** don't install it. If it's a large package you trust, raise the limit in the
+  config or allow that exact `name@version`.
+- **False positives:** very large legitimate packages (some platform binaries) over
+  the size limits.

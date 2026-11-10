@@ -11,6 +11,8 @@ export {
   type RegistrySpec,
   type SpecSource,
 } from "./command/spec.ts";
+export { checkPackage, type PackageCheckOptions, type PackageCheckResult } from "./check.ts";
+export { checkTarball, type TarballCheckOptions, type TarballCheckResult } from "./tarball/check.ts";
 export {
   checkRegistry,
   type RegistryCheckInput,
