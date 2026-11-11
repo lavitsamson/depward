@@ -6,6 +6,10 @@ metadata and statically analyzes tarballs. It never runs package code.
 
 > **Status:** pre-release. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
+**Using an AI coding agent?** Set up depward for
+[Claude Code](docs/setup/claude-code.md), [Cursor](docs/setup/cursor.md), or
+[Codex CLI](docs/setup/codex.md). An overview is in [docs/setup](docs/setup/README.md).
+
 | Package | Purpose |
 |---|---|
 | [`@depward/core`](packages/core) | Registry client, tarball reader, lockfile parsers, cache, config, reporters |
