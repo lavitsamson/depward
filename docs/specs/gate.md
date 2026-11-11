@@ -133,6 +133,10 @@ How M2.3 reads this (`checkTarball`, `checkPackage`):
 - `checkPackage` runs the tarball stage whenever a version resolved. Skipping it once a
   registry finding already denies needs the policy engine's actions, so M2.4 adds that.
 - The escalations above are applied by the policy engine (M2.4), like the registry ones.
+- Analysis results are cached by tarball integrity, analyzer version and
+  `ANALYSIS_REVISION`, and limits (`analysisCache`, ADR 0005). The CLI, hook, and MCP
+  server use the disk cache. Only successful analyses of verified bytes are stored, and
+  an unreadable entry is recomputed.
 
 ## Policy engine
 

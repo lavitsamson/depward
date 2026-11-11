@@ -7,9 +7,11 @@
 // deny) belong to the policy engine (policy/engine.ts), like the registry ones.
 
 import type { AnalyzeOptions, PackageProfile } from "@depward/analyzer";
+import { analysisCacheKey, readCachedProfile, writeCachedProfile } from "./cache.ts";
 import {
   DepwardError,
   findingDocsUrl,
+  type Cache,
   isDepwardError,
   readTarball,
   sortFindings,
@@ -36,6 +38,12 @@ export interface TarballCheckOptions {
   tarLimits?: TarLimits;
   /** Analyzer limits. Defaults: 5 MB per analyzed file, 20,000 files. */
   analyze?: AnalyzeOptions;
+  /**
+   * Where to keep analysis results, keyed by the version's integrity hash, the
+   * analyzer's version and revision, and the limits (ADR 0005). A hit skips the download
+   * and the analysis. Default: none, so every check analyzes.
+   */
+  analysisCache?: Cache | null;
 }
 
 /** Result of {@link checkTarball}. */
@@ -93,18 +101,35 @@ export async function checkTarball(meta: VersionMeta, opts: TarballCheckOptions)
     name, version, findings: sortFindings(findings), profile, errors,
   });
 
-  const { analyzePackage, profileFindings } = await preloadAnalyzer();
-  let profile: PackageProfile;
+  const analyzer = await preloadAnalyzer();
+  const cache = opts.analysisCache ?? null;
+  const key = cache === null ? null : analysisCacheKey(meta, opts, analyzer);
+  let profile = cache !== null && key !== null ? await readCachedProfile(cache, key) : null;
+  if (profile !== null) {
+    try {
+      return done(reported(analyzer.profileFindings(profile), name, version), profile, []);
+    } catch {
+      profile = null; // A stale entry the shape check let through: analyze again.
+    }
+  }
+
   try {
+    // `tarball()` verifies the bytes against `dist.integrity`, so what gets cached under
+    // that hash was computed from exactly those bytes.
     const bytes = await opts.registry.tarball(meta);
-    profile = analyzePackage(readTarball(bytes, opts.tarLimits), opts.analyze);
+    profile = analyzer.analyzePackage(readTarball(bytes, opts.tarLimits), opts.analyze);
   } catch (err) {
     const { finding, error } = failure(meta, err);
     return done(finding ? [finding] : [], null, error ? [error] : []);
   }
 
-  // Report under the requested name and version, not whatever the archive's own
-  // package.json claims: that file is attacker-controlled.
-  const findings = profileFindings(profile).map((f) => ({ ...f, package: name, version }));
+  const findings = reported(analyzer.profileFindings(profile), name, version);
+  if (cache !== null && key !== null) await writeCachedProfile(cache, key, profile, Date.now());
   return done(findings, profile, []);
+}
+
+// Report under the requested name and version, not whatever the archive's own
+// package.json claims: that file is attacker-controlled.
+function reported(findings: Finding[], name: string, version: string): Finding[] {
+  return findings.map((f) => ({ ...f, package: name, version }));
 }

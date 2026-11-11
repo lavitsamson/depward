@@ -101,7 +101,8 @@ interface LockfileEntry {
 - Location: `$XDG_CACHE_HOME/depward` or the platform equivalent. Override with
   `DEPWARD_CACHE_DIR`.
 - Packuments: 10 min TTL with ETag revalidation. Downloads: 24 h. Tarballs: permanent,
-  keyed by integrity.
+  keyed by integrity. Analysis results (written by the gate, ADR 0005): permanent, keyed
+  by integrity, analyzer version and revision, and limits.
 - Atomic writes (temp file + rename). Safe when several processes run at once.
 
 ## Config (`depward.config.json` or the `"depward"` key in package.json)
