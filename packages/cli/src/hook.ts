@@ -83,14 +83,15 @@ async function decide(adapter: HookAdapter, input: string, args: { config?: stri
     timer = setTimeout(() => resolve(null), budget);
   });
   try {
+    const cache = createDiskCache(defaultCacheDir(rt.env));
     const registry = rt.gate?.registry ?? createRegistryClient({
       cwd: projectDir,
       env: rt.env,
-      cache: createDiskCache(defaultCacheDir(rt.env)),
+      cache,
       ...(config.registry === undefined ? {} : { registry: config.registry }),
       ...(args.offline ? { offline: true } : {}),
     });
-    const decision = await Promise.race([checkCommand(parsed.request.command, { ...rt.gate, registry, config }), timeout]);
+    const decision = await Promise.race([checkCommand(parsed.request.command, { ...(rt.gate?.registry ? {} : { analysisCache: cache }), ...rt.gate, registry, config }), timeout]);
     if (decision === null) return failure(config.onError, `the check didn't finish within ${budget / 1000} s`);
     return hookVerdict(decision);
   } catch (err) {

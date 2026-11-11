@@ -91,6 +91,11 @@ How M2.2 reads the table (`checkRegistry`, `src/registry/`):
     only because its CI account, listed for months, had not published in the last 5
     versions. "Established" also needs a listing 30+ days earlier. Without that, an
     attacker could list a new account in one release and publish from it in the next.
+  - (2026-11-11, after the top-1,000 benchmark, where 63 of 1,000 asked and 46 of
+    those were moves to trusted publishing) `publisher-changed` also exempts a version
+    published through npm trusted publishing (`_npmUser.trustedPublisher`, set by the
+    registry) that has a provenance attestation, and a version published more than 90
+    days ago. A person publishing after OIDC releases is still checked as before.
   - Typosquat distance is optimal string alignment (OSA) rather than plain
     Levenshtein. Swapped letters are a common typo, and short names (limit 1) missed
     them (`axois`, `raect`).
@@ -133,6 +138,10 @@ How M2.3 reads this (`checkTarball`, `checkPackage`):
 - `checkPackage` runs the tarball stage whenever a version resolved. Skipping it once a
   registry finding already denies needs the policy engine's actions, so M2.4 adds that.
 - The escalations above are applied by the policy engine (M2.4), like the registry ones.
+- Analysis results are cached by tarball integrity, analyzer version and
+  `ANALYSIS_REVISION`, and limits (`analysisCache`, ADR 0005). The CLI, hook, and MCP
+  server use the disk cache. Only successful analyses of verified bytes are stored, and
+  an unreadable entry is recomputed.
 
 ## Policy engine
 

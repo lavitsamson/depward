@@ -237,7 +237,7 @@ export async function checkRegistry(input: RegistryCheckInput, opts: RegistryChe
       [`published ${new Date(published).toISOString()}`]));
   }
 
-  const pub = publisherChange(packument, meta);
+  const pub = publisherChange(packument, meta, { now });
   if (pub) {
     findings.push(finding("publisher-changed", "medium", name, version,
       `${name}@${version} was published by ${escapeUnsafe(pub.publisher, 80)}, who published none of the previous versions.`,

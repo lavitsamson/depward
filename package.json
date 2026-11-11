@@ -13,6 +13,8 @@
     "lint": "oxlint --deny-warnings && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tools.json",
     "check:publish": "pnpm --recursive --filter \"./packages/*\" run check:publish",
     "depward": "node --conditions=@depward/source packages/cli/src/bin.ts",
+    "bench:gate": "node --conditions=@depward/source scripts/bench-gate.ts",
+    "bench:fp": "node --conditions=@depward/source scripts/bench-fp.ts",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-versions.ts",
     "release": "pnpm build && changeset publish"

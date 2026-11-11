@@ -111,14 +111,16 @@ export async function runCheck(argv: string[], rt: Runtime): Promise<number> {
 
   const started = rt.now();
   const config = await loadConfig(rt.cwd, args.config === undefined ? {} : { path: args.config });
+  const cache = createDiskCache(defaultCacheDir(rt.env));
   const registry = rt.gate?.registry ?? createRegistryClient({
     cwd: rt.cwd,
     env: rt.env,
-    cache: createDiskCache(defaultCacheDir(rt.env)),
+    cache,
     ...(config.registry === undefined ? {} : { registry: config.registry }),
     ...(args.offline ? { offline: true } : {}),
   });
-  const opts = { ...rt.gate, registry, config };
+  // Without an injected registry (tests), analysis results share the disk cache (ADR 0005).
+  const opts = { ...(rt.gate?.registry ? {} : { analysisCache: cache }), ...rt.gate, registry, config };
   const decision = args.command === undefined ? await checkSpecs(args.specs, opts) : await checkCommand(args.command, opts);
 
   rt.stdout(render(decision, args, rt));

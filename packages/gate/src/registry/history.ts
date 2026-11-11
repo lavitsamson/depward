@@ -69,6 +69,26 @@ export interface PublisherChange {
 /** A maintainer counts as established once listed this many days before a publish. */
 export const ESTABLISHED_MAINTAINER_DAYS = 30;
 
+/** `publisher-changed` ignores versions published longer ago than this (when given a clock). */
+export const PUBLISHER_CHANGE_MAX_AGE_DAYS = 90;
+
+/**
+ * True when the version was published through npm trusted publishing (OIDC) and has a
+ * provenance attestation. The registry sets `_npmUser` itself, adding
+ * `trustedPublisher: { id: "github" | …, oidcConfigId }` to such publishes (observed on
+ * registry.npmjs.org, 2026-11-11: es-module-lexer@3.0.4, tar@7.5.23; trusted publishing
+ * generates provenance, https://docs.npmjs.com/trusted-publishers). A name or email
+ * alone is never enough: an ordinary account can be called "GitHub Actions".
+ */
+export function isTrustedPublish(meta: VersionMeta): boolean {
+  const user: unknown = meta._npmUser;
+  if (typeof user !== "object" || user === null) return false;
+  const tp: unknown = (user as { trustedPublisher?: unknown }).trustedPublisher;
+  if (typeof tp !== "object" || tp === null || typeof (tp as { id?: unknown }).id !== "string") return false;
+  const provenance: unknown = (meta.dist.attestations as { provenance?: unknown } | undefined)?.provenance;
+  return hasAttestations(meta) && typeof provenance === "object" && provenance !== null;
+}
+
 /**
  * `publisher-changed`: the version's `_npmUser` did not publish any of the previous
  * {@link HISTORY_WINDOW} versions and is not an established maintainer. `null`
@@ -80,10 +100,21 @@ export const ESTABLISHED_MAINTAINER_DAYS = 30;
  * so an account an attacker added recently never qualifies, even if a release in
  * between already lists it. A long-standing maintainer publishing for the first time
  * (a team member, or a CI account) is not flagged.
+ *
+ * Also not flagged (approved 2026-11-11 after the top-1,000 benchmark):
+ * - a version published through npm trusted publishing with a provenance attestation
+ *   ({@link isTrustedPublish}). Moving to OIDC publishing replaces the person in
+ *   `_npmUser` with the CI identity, and a maintainer has to set it up on npmjs.com.
+ * - with `now`, a version published more than {@link PUBLISHER_CHANGE_MAX_AGE_DAYS} days
+ *   ago: a takeover shows up in a fresh release, and an old one has been in use since.
  */
-export function publisherChange(packument: Packument, meta: VersionMeta): PublisherChange | null {
+export function publisherChange(packument: Packument, meta: VersionMeta, opts: { now?: number } = {}): PublisherChange | null {
   const publisher = personName(meta._npmUser);
-  if (publisher === null) return null;
+  if (publisher === null || isTrustedPublish(meta)) return null;
+  if (opts.now !== undefined) {
+    const at = publishTime(packument, meta.version);
+    if (at !== null && opts.now - at > PUBLISHER_CHANGE_MAX_AGE_DAYS * DAY) return null;
+  }
   const history = previousVersions(packument, meta.version);
   const previous = [...new Set(history.map((m) => personName(m._npmUser)).filter((n) => n !== null))];
   if (previous.length === 0 || previous.includes(publisher)) return null;

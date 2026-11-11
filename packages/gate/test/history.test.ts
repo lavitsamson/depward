@@ -8,20 +8,22 @@ interface V {
   by: string;
   maintainers?: string[];
   attest?: boolean;
+  /** Published through npm trusted publishing (OIDC): `_npmUser.trustedPublisher`, plus SLSA provenance. */
+  trusted?: boolean;
 }
 
 function doc(versions: V[]): Packument {
   const out: Record<string, VersionMeta> = {};
   const time: Record<string, string> = {};
-  for (const { v, at, by, maintainers, attest } of versions) {
+  for (const { v, at, by, maintainers, attest, trusted } of versions) {
     out[v] = {
       name: "pkg",
       version: v,
       dist: {
         tarball: `https://registry.npmjs.org/pkg/-/pkg-${v}.tgz`,
-        ...(attest ? { attestations: { url: `https://registry.npmjs.org/-/npm/v1/attestations/pkg@${v}` } } : {}),
+        ...(attest || trusted ? { attestations: { url: `https://registry.npmjs.org/-/npm/v1/attestations/pkg@${v}`, ...(trusted ? { provenance: { predicateType: "https://slsa.dev/provenance/v1" } } : {}) } } : {}),
       },
-      _npmUser: { name: by },
+      _npmUser: trusted ? { name: by, email: "npm-oidc-no-reply@github.com", trustedPublisher: { id: "github", oidcConfigId: "00000000-0000-4000-8000-000000000000" } } : { name: by },
       ...(maintainers ? { maintainers: maintainers.map((name) => ({ name })) } : {}),
     };
     time[v] = at;
@@ -102,6 +104,53 @@ describe("publisherChange", () => {
       { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "" },
     ]);
     expect(check(anon, "1.0.1")).toBeNull();
+  });
+
+  // Approved 2026-11-11 after the top-1,000 benchmark (docs/benchmarks.md).
+  test("moving to trusted publishing with provenance is not a publisher change", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "alice" },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "GitHub Actions", trusted: true },
+    ]);
+    expect(check(p, "1.0.1")).toBeNull();
+  });
+
+  test("a trusted-publisher identity without provenance is still flagged", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "alice" },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "GitHub Actions", trusted: true },
+    ]);
+    const meta = p.versions["1.0.1"] as VersionMeta;
+    const noProvenance = { ...meta, dist: { ...meta.dist, attestations: { url: "https://registry.npmjs.org/-/npm/v1/attestations/pkg@1.0.1" } } };
+    expect(publisherChange(p, noProvenance)?.publisher).toBe("GitHub Actions");
+    // A name alone proves nothing: _npmUser without trustedPublisher is an ordinary account.
+    const lookalike = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "alice" },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "GitHub Actions", attest: true },
+    ]);
+    expect(check(lookalike, "1.0.1")?.publisher).toBe("GitHub Actions");
+  });
+
+  test("a person publishing after trusted-publishing releases is still checked", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "GitHub Actions", trusted: true },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "GitHub Actions", trusted: true },
+      { v: "1.0.2", at: "2024-03-01T00:00:00Z", by: "mallory" },
+    ]);
+    expect(check(p, "1.0.2")).toEqual({ publisher: "mallory", previous: ["GitHub Actions"] });
+  });
+
+  test("a change more than 90 days ago is history, not a takeover in progress", () => {
+    const p = doc([
+      { v: "1.0.0", at: "2024-01-01T00:00:00Z", by: "alice" },
+      { v: "1.0.1", at: "2024-02-01T00:00:00Z", by: "mallory" },
+    ]);
+    const meta = p.versions["1.0.1"] as VersionMeta;
+    const at = Date.parse("2024-02-01T00:00:00Z");
+    const day = 86_400_000;
+    expect(publisherChange(p, meta, { now: at + 90 * day })?.publisher).toBe("mallory");
+    expect(publisherChange(p, meta, { now: at + 90 * day + 1 })).toBeNull();
+    expect(publisherChange(p, meta)?.publisher).toBe("mallory"); // no clock: no age limit
   });
 });
 

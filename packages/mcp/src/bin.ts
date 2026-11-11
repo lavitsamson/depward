@@ -49,9 +49,10 @@ const config = await loadConfig(cwd, values.config === undefined ? {} : { path: 
   process.stderr.write(`depward-mcp: ${(err as Error).message}\n`);
   process.exit(1);
 });
+const cache = createDiskCache(defaultCacheDir());
 const registry = createRegistryClient({
   cwd,
-  cache: createDiskCache(defaultCacheDir()),
+  cache,
   ...(config.registry === undefined ? {} : { registry: config.registry }),
   ...(values.offline ? { offline: true } : {}),
 });
@@ -59,7 +60,7 @@ const registry = createRegistryClient({
 await preloadAnalyzer();
 
 const handle = serveStdio(() =>
-  createDepwardServer({ registry, cwd, version: VERSION, ...(values.config === undefined ? {} : { configPath: values.config }) }),
+  createDepwardServer({ registry, cwd, version: VERSION, gate: { analysisCache: cache }, ...(values.config === undefined ? {} : { configPath: values.config }) }),
 );
 process.stderr.write(`depward-mcp ${VERSION}: serving on stdio (config: ${config.source ?? "built-in defaults"})\n`);
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

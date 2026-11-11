@@ -318,10 +318,12 @@ the error instead of a finding, and the policy engine applies `onError` (default
   and of the newest version published at least 30 days earlier, so an account that was
   added recently never counts. Account takeovers usually look like this. The evidence
   lists the earlier publishers.
+- **Not flagged:** a version published through npm trusted publishing (the registry
+  adds `_npmUser.trustedPublisher`) that has a provenance attestation, and a version
+  published more than 90 days ago.
 - **Fix:** check the project's changelog or repository for the new maintainer.
 - **False positives:** new team members' first releases, and switching to trusted
-  publishing (the publisher becomes the CI identity), unless that account was already
-  a listed maintainer.
+  publishing on a CI provider that doesn't produce provenance (CircleCI).
 
 ### maintainer-added-recently
 

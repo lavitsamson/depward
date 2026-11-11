@@ -50,6 +50,7 @@ export {
   type Attestations,
   type Dist,
   type DistAttestations,
+  type NpmUser,
   type Packument,
   type Person,
   type VersionMeta,
