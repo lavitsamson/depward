@@ -15,6 +15,16 @@ export interface Person {
   email?: string;
 }
 
+/**
+ * `_npmUser`: the account that published a version, as recorded by the registry. For a
+ * trusted (OIDC) publish the registry names the CI identity and adds `trustedPublisher`
+ * (observed 2026-11-11, e.g. `{ id: "github", oidcConfigId }`) and possibly `approver`.
+ */
+export interface NpmUser extends Person {
+  trustedPublisher?: { id: string; oidcConfigId?: string };
+  approver?: Person;
+}
+
 /** `dist.attestations` as published by the registry. */
 export interface DistAttestations {
   url: string;
@@ -42,7 +52,7 @@ export interface VersionMeta {
   dependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
-  _npmUser?: Person;
+  _npmUser?: NpmUser;
   maintainers?: Person[];
   [key: string]: unknown;
 }

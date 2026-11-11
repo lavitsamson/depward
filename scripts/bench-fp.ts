@@ -105,6 +105,10 @@ for (const r of results) for (const c of r.causes) byCause.set(`${r.action} ${c}
 
 console.log(`Top ${results.length} packages (popular-packages snapshot ${data.snapshot}), default config, ${new Date().toISOString().slice(0, 10)}`);
 for (const a of ["allow", "ask", "deny", "error"]) console.log(`${a}: ${count(a)} (${pct(count(a))})`);
+// The Phase 2 target counts false positives. A cooldown ask (`version-too-new` alone) is
+// the policy working as intended: the version really is new. It is reported separately.
+const cooldownOnly = results.filter((r) => r.action === "ask" && r.causes.length === 1 && r.causes[0] === "version-too-new").length;
+console.log(`ask excluding cooldown-only: ${count("ask") - cooldownOnly} (${pct(count("ask") - cooldownOnly)}); cooldown-only: ${cooldownOnly} (${pct(cooldownOnly)})`);
 console.log(`total ${Math.round((performance.now() - started) / 1000)} s\n`);
 console.log("| Action | Cause | Packages | Examples |");
 console.log("|---|---|---:|---|");

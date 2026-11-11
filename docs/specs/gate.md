@@ -91,6 +91,11 @@ How M2.2 reads the table (`checkRegistry`, `src/registry/`):
     only because its CI account, listed for months, had not published in the last 5
     versions. "Established" also needs a listing 30+ days earlier. Without that, an
     attacker could list a new account in one release and publish from it in the next.
+  - (2026-11-11, after the top-1,000 benchmark, where 63 of 1,000 asked and 46 of
+    those were moves to trusted publishing) `publisher-changed` also exempts a version
+    published through npm trusted publishing (`_npmUser.trustedPublisher`, set by the
+    registry) that has a provenance attestation, and a version published more than 90
+    days ago. A person publishing after OIDC releases is still checked as before.
   - Typosquat distance is optimal string alignment (OSA) rather than plain
     Levenshtein. Swapped letters are a common typo, and short names (limit 1) missed
     them (`axois`, `raect`).

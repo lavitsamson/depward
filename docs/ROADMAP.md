@@ -112,6 +112,14 @@ files from M2.9).
   is measured in a benchmark script.
 - The false-positive rate on the top 1,000 packages' latest versions is under 1% `deny`
   and under 5% `ask`. The live benchmark result is recorded in `docs/benchmarks.md`.
+  Asks caused only by the release cooldown (`version-too-new`) are not false positives
+  (the version really is that new) and are reported separately (amended 2026-11-11).
+
+**Status:** met on 2026-11-11. Hook golden tests `deny-hallucinated-name`,
+`deny-two-day-old-package`, and `allow-stable-package`. Latency: cold p95 2.8 s, warm p95
+100 ms (`pnpm bench:gate`, with the analysis cache from ADR 0005). Top 1,000: 0% deny,
+0.9% ask excluding cooldown-only asks (12.4% cooldown) (`pnpm bench:fp`). Review:
+`docs/benchmarks.md` § Phase 2.
 
 ---
 
