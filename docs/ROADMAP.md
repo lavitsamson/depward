@@ -99,7 +99,7 @@ files from M2.9).
 - [x] M2.5 CLI: `depward check <spec...>`, `depward check --command "<shell>"`
 - [x] M2.6 Claude Code PreToolUse hook adapter (`depward hook claude`)
 - [x] M2.7 `@depward/mcp` with the `check_packages` and `check_install_command` tools
-- [ ] M2.8 Docs site pages for setup in Claude Code, Cursor, and Codex CLI. Only document
+- [x] M2.8 Docs site pages for setup in Claude Code, Cursor, and Codex CLI. Only document
       adapters that actually exist
 - [x] M2.9 Data files: `data/popular-packages.json`, `data/hallucinated-names.json`,
       with source and update script documented

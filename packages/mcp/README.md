@@ -7,7 +7,7 @@ An MCP server that lets AI coding agents check packages and install commands wit
 
 ## Example
 
-Register the server with your agent. For example, in a project's `.mcp.json`:
+Register the server with your agent ([setup for Claude Code, Cursor, and Codex CLI](../../docs/setup/README.md)). For example, in a project's `.mcp.json`:
 
 ```json
 {

@@ -3,7 +3,7 @@
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
 > **Status:** pre-release (Phase 2). `depward check` and the Claude Code hook
-> (`depward hook claude`) work; the MCP server comes next. See the
+> (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
 > [roadmap](../../docs/ROADMAP.md).
 
 ## Example
