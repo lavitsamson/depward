@@ -50,4 +50,9 @@ export interface DiffContext {
   packument?: Packument;
   /** Current time in ms, for the publisher check's age cutoff. */
   now?: number;
+  /**
+   * True when a new dependency is itself young (its own check found `package-too-new`).
+   * `diff-new-dependency` is then `high` instead of `low`. Lockfile mode sets it.
+   */
+  isYoungDependency?: (name: string) => boolean;
 }

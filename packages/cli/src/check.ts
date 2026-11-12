@@ -3,17 +3,9 @@
 // (https://nodejs.org/api/util.html#utilparseargsconfig).
 
 import { parseArgs } from "node:util";
-import {
-  REPORT_FORMATS,
-  colorEnabled,
-  createDiskCache,
-  createRegistryClient,
-  defaultCacheDir,
-  loadConfig,
-  renderSarif,
-  type ReportFormat,
-} from "@depward/core";
+import { REPORT_FORMATS, colorEnabled, renderSarif, type ReportFormat } from "@depward/core";
 import { checkCommand, checkSpecs, decisionFindings, serializeDecision, type Decision } from "@depward/gate";
+import { openContext } from "./context.ts";
 import { renderDecisionMarkdown, renderDecisionTerminal } from "./render.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
@@ -110,17 +102,8 @@ export async function runCheck(argv: string[], rt: Runtime): Promise<number> {
   }
 
   const started = rt.now();
-  const config = await loadConfig(rt.cwd, args.config === undefined ? {} : { path: args.config });
-  const cache = createDiskCache(defaultCacheDir(rt.env));
-  const registry = rt.gate?.registry ?? createRegistryClient({
-    cwd: rt.cwd,
-    env: rt.env,
-    cache,
-    ...(config.registry === undefined ? {} : { registry: config.registry }),
-    ...(args.offline ? { offline: true } : {}),
-  });
-  // Without an injected registry (tests), analysis results share the disk cache (ADR 0005).
-  const opts = { ...(rt.gate?.registry ? {} : { analysisCache: cache }), ...rt.gate, registry, config };
+  const { config, registry, analysisCache, overrides } = await openContext(rt, args);
+  const opts = { ...(analysisCache === undefined ? {} : { analysisCache }), ...overrides, registry, config };
   const decision = args.command === undefined ? await checkSpecs(args.specs, opts) : await checkCommand(args.command, opts);
 
   rt.stdout(render(decision, args, rt));

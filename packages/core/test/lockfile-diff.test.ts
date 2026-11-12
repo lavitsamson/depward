@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { diffLockfiles, isDepwardError, parseLockfile, readFileAtRef } from "../src/index.ts";
+import { diffLockfiles, isDepwardError, mergeBase, parseLockfile, readFileAtRef } from "../src/index.ts";
 
 const npmLock = (packages: Record<string, Record<string, unknown>>): string =>
   JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "root" }, ...packages } });
@@ -96,6 +96,23 @@ describe("readFileAtRef", () => {
       await expect(readFileAtRef(ref, "sub/package-lock.json", repo), ref).rejects.toSatisfy(
         (e) => isDepwardError(e, "INVALID_ARGUMENT") || isDepwardError(e, "GIT"),
       );
+    }
+  });
+
+  test("mergeBase finds the common ancestor of HEAD and a ref", async () => {
+    const one = git("rev-parse", "HEAD~1").trim();
+    git("checkout", "-q", "-b", "side", "HEAD~1");
+    await writeFile(join(repo, "side.txt"), "s\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "side");
+    try {
+      expect(await mergeBase("main", repo)).toBe(one);
+      expect(await mergeBase("HEAD", repo)).toBe(git("rev-parse", "HEAD").trim());
+    } finally {
+      git("checkout", "-q", "main");
+    }
+    for (const ref of ["no-such-branch", "--all", "a b"]) {
+      await expect(mergeBase(ref, repo), ref).rejects.toSatisfy((e) => isDepwardError(e, "INVALID_ARGUMENT") || isDepwardError(e, "GIT"));
     }
   });
 

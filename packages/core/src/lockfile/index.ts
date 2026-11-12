@@ -8,7 +8,10 @@ import { addEntry, invalidLockfile, isRecord, sortedEntries, type Lockfile, type
 import { parseYarnBerry } from "./yarn-berry.ts";
 import { parseYarnClassic } from "./yarn-classic.ts";
 
-const KNOWN = new Set(["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"]);
+/** Lockfile names {@link parseLockfile} recognizes, in the order lockfile mode reads them. */
+export const KNOWN_LOCKFILES: readonly string[] = ["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"];
+
+const KNOWN = new Set(KNOWN_LOCKFILES);
 
 /**
  * Parses a lockfile into normalized `name@version` entries. The format is chosen by file

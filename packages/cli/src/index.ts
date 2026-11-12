@@ -1,9 +1,10 @@
-// The depward CLI. A thin wrapper over @depward/gate and @depward/core.
+// The depward CLI. A thin wrapper over @depward/gate, @depward/diff, and @depward/core.
 // Spec: docs/specs/gate.md §CLI.
 
 import { parseArgs } from "node:util";
 import { escapeUnsafe, isDepwardError } from "@depward/core";
 import { CHECK_USAGE, runCheck } from "./check.ts";
+import { DIFF_USAGE, runDiff } from "./diff.ts";
 import { HOOK_USAGE, runHook } from "./hook.ts";
 import { EXIT, UsageError, type Io, type Runtime } from "./runtime.ts";
 
@@ -17,6 +18,8 @@ const USAGE = `Usage: depward <command> [options]
 Commands:
   check <spec...>             Check packages before installing them
   check --command "<cmd>"     Check what a shell command would install
+  diff <name> <from> <to>     Diff what two versions of a package can do
+  diff --lockfile             Diff the dependency changes in the lockfiles
   hook claude                 Claude Code PreToolUse hook (hook input on stdin)
 
 Run "depward <command> --help" for a command's options.
@@ -25,11 +28,12 @@ Options:
   -h, --help     Show this help
   -v, --version  Show the version
 
-Exit codes: 0 allow, 10 ask, 20 deny, 1 error.
+Exit codes (check, hook): 0 allow, 10 ask, 20 deny, 1 error.
 `;
 
 const COMMANDS: Record<string, { run: (argv: string[], rt: Runtime) => Promise<number>; usage: string }> = {
   check: { run: runCheck, usage: CHECK_USAGE },
+  diff: { run: runDiff, usage: DIFF_USAGE },
   hook: { run: runHook, usage: HOOK_USAGE },
 };
 

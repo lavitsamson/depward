@@ -71,3 +71,28 @@ export async function readFileAtRef(ref: string, path: string, cwd: string, opts
   const blob = await git(["cat-file", "blob", `${commit.stdout.trim()}:${rel}`], cwd, o);
   return blob.ok ? blob.stdout : null;
 }
+
+/**
+ * The best common ancestor of `HEAD` and `ref` (`git merge-base HEAD <ref>`), as a full
+ * commit hash. Comparing against it shows only what the current branch changed, even
+ * when `ref` has moved on since the branch was created.
+ *
+ * @throws DepwardError `INVALID_ARGUMENT` for a malformed ref, `GIT` when `cwd` is not a
+ *   repository, the ref does not exist, or the two have no common history (for example
+ *   a shallow clone), `TIMEOUT`.
+ */
+export async function mergeBase(ref: string, cwd: string, opts: Pick<ReadFileAtRefOptions, "timeoutMs"> = {}): Promise<string> {
+  const o = { maxBytes: 1024 * 1024, timeoutMs: opts.timeoutMs ?? 30_000 };
+  if (!SAFE_REF.test(ref) || ref.startsWith("-")) throw new DepwardError("INVALID_ARGUMENT", "invalid git ref");
+  const commit = await git(["rev-parse", "--verify", "--quiet", "--end-of-options", `${ref}^{commit}`], cwd, o);
+  if (!commit.ok) {
+    const inRepo = await git(["rev-parse", "--git-dir"], cwd, o);
+    throw new DepwardError("GIT", inRepo.ok ? `unknown git ref ${ref}` : "not inside a git repository");
+  }
+  const base = await git(["merge-base", "HEAD", commit.stdout.trim()], cwd, o);
+  const hash = base.stdout.trim();
+  if (!base.ok || !/^[0-9a-f]{40,64}$/.test(hash)) {
+    throw new DepwardError("GIT", `HEAD and ${ref} have no common ancestor (in a shallow clone, fetch more history)`);
+  }
+  return hash;
+}

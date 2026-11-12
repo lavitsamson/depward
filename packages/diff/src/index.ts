@@ -11,3 +11,14 @@ export {
 } from "./deltas.ts";
 export { DIFF_FINDING_IDS, HIGH_RISK_CAPABILITIES, MAX_EVIDENCE, diffRisk, isPatchBump, isRawIpEndpoint } from "./rules.ts";
 export type { DiffContext, PackageDiff, ScriptChange } from "./types.ts";
+export { diffLockfile, mapLimit, DEFAULT_CONCURRENCY, DEFAULT_MAX_PACKAGES } from "./lockfile/run.ts";
+export { checkNew, diffVersions, integrityFinding, nonRegistryResult } from "./lockfile/check.ts";
+export { compareVersions, planLockfile, type LockfilePlan, type PlannedCheck, type PlannedUpdate } from "./lockfile/plan.ts";
+export type {
+  LockfileDiffOptions,
+  LockfileDiffReport,
+  LockfileSummary,
+  PackageChangeKind,
+  PackageChangeResult,
+  VersionDiffOptions,
+} from "./lockfile/types.ts";

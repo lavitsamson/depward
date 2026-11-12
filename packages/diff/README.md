@@ -5,15 +5,15 @@ packages you already trust: a patch that suddenly adds a `postinstall`, starts u
 network, reads tokens, or ships an obfuscated file. Package code is never run. Both
 versions are analyzed statically, in memory.
 
-> **Status:** Phase 3 in progress. `diffPackages` is available. Lockfile mode, the CLI,
-> and the GitHub Action are coming; see the [roadmap](../../docs/ROADMAP.md).
+> **Status:** Phase 3 in progress. `diffPackages`, `diffVersions`, and lockfile mode
+> (`diffLockfile`) are available. The GitHub Action is coming; see the [roadmap](../../docs/ROADMAP.md).
 
 ## Example
 
 ```js
 import { createRegistryClient, readTarball } from "@depward/core";
 import { analyzePackage } from "@depward/analyzer";
-import { diffPackages } from "@depward/diff";
+import { diffLockfile, diffPackages } from "@depward/diff";
 
 const registry = createRegistryClient();
 const packument = await registry.packument("left-pad");
@@ -32,6 +32,14 @@ const diff = diffPackages(a.profile, b.profile, a.meta, b.meta, { packument, now
 console.log(`${diff.name} ${diff.from} → ${diff.to}: ${diff.risk}`);
 console.log(diff.capabilityDelta, diff.scriptDelta, diff.dependencyDelta);
 for (const f of diff.findings) console.log(f.severity, f.id, f.message);
+```
+
+For a whole lockfile change (what a pull request changed), `diffLockfile` compares every
+lockfile in a directory with its version at the merge-base of `HEAD` and a git ref:
+
+```js
+const report = await diffLockfile({ cwd: process.cwd(), base: "origin/main", registry });
+for (const p of report.packages) console.log(p.risk, p.kind, p.name, p.from ?? "", p.to);
 ```
 
 `risk` is the highest finding severity. Two or more `high` findings raise it to
