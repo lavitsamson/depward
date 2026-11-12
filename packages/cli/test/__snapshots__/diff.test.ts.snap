@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`diff <name> <from> <to> > terminal output lists the findings of the update 1`] = `
+exports[`diff <name> <from> <to> > terminal output lists the findings of the update; critical fails by default 1`] = `
 "depward diff: critical (1 package change: 1 critical)
 
   CRITICAL  fx-a 1.0.0 → 1.0.1  (updated)

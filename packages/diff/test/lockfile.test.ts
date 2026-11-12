@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isDepwardError } from "@depward/core";
-import { createGateData, preloadAnalyzer } from "@depward/gate";
+import { isDepwardError, parseConfig } from "@depward/core";
+import { createGateData, createPolicy, preloadAnalyzer } from "@depward/gate";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { diffLockfile, type LockfileDiffReport } from "../src/index.ts";
 import { fakeRegistry, type FakeRegistry } from "./fake-registry.ts";
@@ -151,6 +151,18 @@ describe("diffLockfile", () => {
     await writeFile(join(repo, "package-lock.json"), npmLock(reg, { "fx-gone": { version: "1.0.1", integrity: "sha512-BBBB" } }));
     const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW });
     expect(report.packages[0]?.errors.map((e) => e.code)).toEqual(["NOT_FOUND"]);
+  });
+
+  test("a policy re-scores packages and the report risk", async () => {
+    const reg = registry();
+    await commitLock(npmLock(reg, { "fx-a": { version: "1.0.0" }, "fx-b": { version: "2.0.0" } }));
+    await writeFile(join(repo, "package-lock.json"), npmLock(reg, { "fx-a": { version: "1.0.1" }, "fx-b": { version: "2.1.0" } }));
+    const policy = createPolicy(parseConfig({ allow: ["fx-a"], deny: ["fx-b@2.1.0"] }, "depward.config.json"));
+    const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW, policy });
+    expect(summary(report)).toEqual(["updated fx-b 2.0.0→2.1.0 critical", "updated fx-a 1.0.0→1.0.1 info"]);
+    expect(report.packages[1]?.allowedFindings?.length).toBeGreaterThan(0);
+    expect(report.findings.map((x) => x.id)).toEqual(["denylisted"]);
+    expect(report.risk).toBe("critical");
   });
 
   test("without --base, a missing origin/HEAD asks for --base", async () => {

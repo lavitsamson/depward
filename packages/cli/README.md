@@ -59,6 +59,8 @@ depward diff --lockfile [--base <ref>] [options]
       --base <ref>        Git ref to compare with (default origin/HEAD)
       --head <ref>        Read the lockfiles at this ref instead of the working tree
       --format <fmt>      terminal (default), json, markdown, sarif
+      --fail-on <level>   Exit 20 at this risk: critical (default), high, medium,
+                          low, info, or none
       --concurrency <n>   Packages checked at once (default 8)
       --offline, --config, --verbose, --json   As for check
 ```
@@ -75,8 +77,14 @@ depward diff --lockfile --base origin/main --format markdown
 
 Updated packages are diffed. New packages get the same registry and tarball checks as
 `depward check`. A lockfile whose integrity hash disagrees with the registry is reported
-as `lockfile-integrity-mismatch`. Exit codes: `0` report printed, `1` error, including
-a lookup that failed (the report is still printed). `--fail-on` is coming.
+as `lockfile-integrity-mismatch`.
+
+Each package gets a risk: its highest finding severity, or `critical` when an update
+has two `high` findings. The config applies here too. A `policy` override to `allow`
+keeps a reviewed finding visible but out of the risk, the `allow` list does that for a
+whole package, and a version on the `deny` list is always `critical`. Exit codes: `0`
+below `--fail-on`, `20` when a package reaches it, `1` error, including a lookup that
+failed (the report is still printed).
 
 ## Claude Code hook
 

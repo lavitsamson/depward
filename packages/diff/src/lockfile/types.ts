@@ -1,6 +1,6 @@
 import type { AnalyzeOptions } from "@depward/analyzer";
 import type { Cache, DepwardError, Finding, LockfileFormat, RegistryClient, Severity, TarLimits } from "@depward/core";
-import type { GateData } from "@depward/gate";
+import type { GateData, ListMatch, Policy } from "@depward/gate";
 import type { PackageDiff } from "../types.ts";
 
 /** Registry access and limits shared by {@link diffVersions} and {@link diffLockfile}. */
@@ -14,6 +14,12 @@ export interface VersionDiffOptions {
   now?: () => number;
   tarLimits?: TarLimits;
   analyze?: AnalyzeOptions;
+  /**
+   * The project's policy (`createPolicy(config)`). When given, `diffLockfile` applies it
+   * with {@link applyPolicy}: allowed findings and allow-listed packages don't count
+   * toward risk, and deny-listed packages are `critical`. Default: none.
+   */
+  policy?: Policy;
 }
 
 /** Options for {@link diffLockfile}. */
@@ -55,11 +61,18 @@ export interface PackageChangeResult {
   lockfiles: string[];
   /** The behavioral diff, for `updated` when both versions could be analyzed. */
   diff?: PackageDiff;
-  /** Sorted by severity, then package, then id. */
+  /** Findings that count toward risk. Sorted by severity, then package, then id. */
   findings: Finding[];
+  /** Findings the config allows (a `policy` override to `allow`, or the `allow` list). Shown, not counted. */
+  allowedFindings?: Finding[];
+  /** The config list entry matching this package, when a policy was applied. */
+  listed?: ListMatch | null;
   /** Failed lookups (network, timeout, missing versions). */
   errors: DepwardError[];
-  /** `updated`: the diff's risk rules. Otherwise the highest finding severity. `info` when there are none. */
+  /**
+   * `updated`: the diff's risk rules. Otherwise the highest finding severity. `info` when
+   * there are none. `critical` for a deny-listed package.
+   */
   risk: Severity;
 }
 

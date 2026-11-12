@@ -424,7 +424,9 @@ project's config, not from the package.
 ### denylisted
 
 - **Default severity:** high (default action: deny)
-- **Emitted by:** `@depward/gate` (policy engine)
+- **Emitted by:** `@depward/gate` (policy engine), and `@depward/diff` when a changed
+  package's new version matches the `deny` list. In diff, that package's risk is
+  `critical`, so it fails the default `--fail-on`
 - **Meaning:** the package matches an entry of the config's `deny` list (a name glob
   such as `@evil/*`, or an exact `name@version`). The evidence names the entry and the
   config file. Deny wins over an `allow` entry for the same package, and the `policy`

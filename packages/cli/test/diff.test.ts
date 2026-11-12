@@ -66,6 +66,7 @@ describe("diff: arguments", () => {
     [["diff", "--lockfile", "a"], "takes no package arguments"],
     [["diff", "--lockfile", "--concurrency", "0"], "--concurrency must be"],
     [["diff", "--lockfile", "--format", "html"], "--format must be one of"],
+    [["diff", "a", "1", "2", "--fail-on", "severe"], "--fail-on must be one of"],
   ])("%j is a usage error", async (argv, message) => {
     const r = await run(argv);
     expect(r.code).toBe(EXIT.error);
@@ -75,9 +76,9 @@ describe("diff: arguments", () => {
 });
 
 describe("diff <name> <from> <to>", () => {
-  test("terminal output lists the findings of the update", async () => {
+  test("terminal output lists the findings of the update; critical fails by default", async () => {
     const r = await run(["diff", "fx-a", "1.0.0", "1.0.1"]);
-    expect(r.code).toBe(EXIT.allow);
+    expect(r.code).toBe(EXIT.deny);
     expect(r.out).toMatchSnapshot();
   });
 
@@ -89,6 +90,42 @@ describe("diff <name> <from> <to>", () => {
     expect(doc.packages[0]?.kind).toBe("updated");
     expect(doc.packages[0]?.delta.capabilities).toEqual({ added: ["net", "env"], removed: [] });
     expect(doc.packages[0]?.delta.scripts).toEqual({ postinstall: { to: "node index.js" } });
+  });
+
+  test.each([
+    ["none", EXIT.allow],
+    ["critical", EXIT.deny],
+    ["high", EXIT.deny],
+  ] as const)("--fail-on %s exits %i", async (level, code) => {
+    expect((await run(["diff", "fx-a", "1.0.0", "1.0.1", "--fail-on", level])).code).toBe(code);
+  });
+
+  test("an update without findings passes even at --fail-on info", async () => {
+    expect((await run(["diff", "fx-b", "2.0.0", "2.0.1", "--fail-on", "info"])).code).toBe(EXIT.allow);
+  });
+
+  test("config: allowed findings are shown as allowed and don't count", async () => {
+    await writeFile(
+      join(cwd, "depward.config.json"),
+      JSON.stringify({ policy: { "diff-new-install-script": "allow", "diff-new-network-in-non-network-pkg": "allow" } }),
+    );
+    const r = await run(["diff", "fx-a", "1.0.0", "1.0.1", "--json"]);
+    const doc = JSON.parse(r.out) as { risk: string; failOn: string; failed: boolean; packages: { allowedFindings: { id: string }[] }[] };
+    // One high is left (diff-new-sensitive-env), so no two-high escalation.
+    expect(doc).toMatchObject({ risk: "high", failOn: "critical", failed: false });
+    expect(doc.packages[0]?.allowedFindings.map((f) => f.id)).toEqual(["diff-new-install-script", "diff-new-network-in-non-network-pkg"]);
+    expect(r.code).toBe(EXIT.allow);
+    const terminal = await run(["diff", "fx-a", "1.0.0", "1.0.1"]);
+    expect(terminal.out).toContain("2 findings allowed by the config not shown");
+  });
+
+  test("config: an allow-listed package never fails; a deny-listed version always does", async () => {
+    await writeFile(join(cwd, "depward.config.json"), JSON.stringify({ allow: ["fx-a"], deny: ["fx-b@2.0.1"] }));
+    expect((await run(["diff", "fx-a", "1.0.0", "1.0.1"])).code).toBe(EXIT.allow);
+    const denied = await run(["diff", "fx-b", "2.0.0", "2.0.1"]);
+    expect(denied.code).toBe(EXIT.deny);
+    expect(denied.out).toContain("on the config's deny list");
+    expect(denied.out).toContain("denylisted");
   });
 
   test("an unknown version is a failed lookup: exit 1, report still printed", async () => {
@@ -130,7 +167,7 @@ describe("diff --lockfile", () => {
     const reg = registry();
     await repo(reg);
     const r = await run(["diff", "--lockfile", "--base", "main"], reg);
-    expect(r.code).toBe(EXIT.allow);
+    expect(r.code).toBe(EXIT.deny);
     expect(r.out.replace(/base [0-9a-f]{12}/, "base <sha>")).toMatchSnapshot();
   });
 

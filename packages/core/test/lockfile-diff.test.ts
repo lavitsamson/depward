@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { diffLockfiles, isDepwardError, mergeBase, parseLockfile, readFileAtRef } from "../src/index.ts";
+import { diffLockfiles, filesAtRef, isDepwardError, mergeBase, parseLockfile, readFileAtRef } from "../src/index.ts";
 
 const npmLock = (packages: Record<string, Record<string, unknown>>): string =>
   JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "root" }, ...packages } });
@@ -114,6 +114,14 @@ describe("readFileAtRef", () => {
     for (const ref of ["no-such-branch", "--all", "a b"]) {
       await expect(mergeBase(ref, repo), ref).rejects.toSatisfy((e) => isDepwardError(e, "INVALID_ARGUMENT") || isDepwardError(e, "GIT"));
     }
+  });
+
+  test("filesAtRef lists which candidates exist at a ref, relative to cwd", async () => {
+    expect(await filesAtRef("HEAD", ["sub/package-lock.json", "yarn.lock", "sub"], repo)).toEqual(["sub/package-lock.json"]);
+    expect(await filesAtRef("HEAD~1", ["package-lock.json", "pnpm-lock.yaml"], join(repo, "sub"))).toEqual(["package-lock.json"]);
+    expect(await filesAtRef("HEAD", [], repo)).toEqual([]);
+    await expect(filesAtRef("--all", ["x"], repo)).rejects.toSatisfy((e) => isDepwardError(e, "INVALID_ARGUMENT"));
+    await expect(filesAtRef("no-such-branch", ["x"], repo)).rejects.toSatisfy((e) => isDepwardError(e, "GIT"));
   });
 
   test("throws GIT outside a repository", async () => {

@@ -8,6 +8,7 @@ import {
   KNOWN_LOCKFILES,
   compareSeverity,
   diffLockfiles,
+  filesAtRef,
   isDepwardError,
   mergeBase,
   parseLockfile,
@@ -17,6 +18,7 @@ import {
 } from "@depward/core";
 import { checkNew, diffVersions, nonRegistryResult } from "./check.ts";
 import { planLockfile, type PlannedCheck, type PlannedUpdate } from "./plan.ts";
+import { applyPolicy } from "./policy.ts";
 import type { LockfileDiffOptions, LockfileDiffReport, LockfileSummary, PackageChangeResult } from "./types.ts";
 
 /** Default packages checked at once. */
@@ -91,9 +93,14 @@ export async function diffLockfile(opts: LockfileDiffOptions): Promise<LockfileD
   const lockfiles: LockfileSummary[] = [];
   const work: Work = { updates: new Map(), checks: new Map(), nonRegistry: new Map(), skipped: new Set() };
 
+  // One `git ls-tree` per ref says which lockfiles exist, so only those are read.
+  const atBase = new Set(await filesAtRef(base, KNOWN_LOCKFILES, opts.cwd));
+  const atHead = opts.head === undefined ? null : new Set(await filesAtRef(opts.head, KNOWN_LOCKFILES, opts.cwd));
   for (const name of KNOWN_LOCKFILES) {
-    const headText = opts.head === undefined ? await readWorkingTree(join(opts.cwd, name)) : await readFileAtRef(opts.head, name, opts.cwd);
-    const baseText = await readFileAtRef(base, name, opts.cwd);
+    let headText: string | null = null;
+    if (atHead === null) headText = await readWorkingTree(join(opts.cwd, name));
+    else if (opts.head !== undefined && atHead.has(name)) headText = await readFileAtRef(opts.head, name, opts.cwd);
+    const baseText = atBase.has(name) ? await readFileAtRef(base, name, opts.cwd) : null;
     if (headText === null && baseText === null) continue;
     const head = headText === null ? empty(name) : parseLockfile(name, headText);
     const before = baseText === null ? empty(name) : parseLockfile(name, baseText);
@@ -133,7 +140,9 @@ export async function diffLockfile(opts: LockfileDiffOptions): Promise<LockfileD
   }));
   const external = [...work.nonRegistry.values()].map((c) => ({ ...nonRegistryResult(c.entry, c.lockfiles[0] ?? ""), lockfiles: c.lockfiles }));
 
-  const packages = [...updated, ...checked, ...external].toSorted(comparePackages);
+  const policy = opts.policy;
+  const results = [...updated, ...checked, ...external];
+  const packages = (policy === undefined ? results : results.map((r) => applyPolicy(r, policy))).toSorted(comparePackages);
   const findings = sortFindings([...lockfiles.flatMap((l) => l.findings), ...packages.flatMap((p) => p.findings)]);
   return {
     base,

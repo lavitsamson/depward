@@ -117,11 +117,32 @@ interface PackageDiff {
 - **Package code** is analyzed through the gate's tarball check, so the analysis cache
   (ADR 0005) is shared with `depward check`.
 
+## Risk and `--fail-on` (decided 2026-11-12)
+
+- **Package risk:** for an update, the highest finding severity, or `critical` when two
+  or more findings are `high`. For a new, changed, or non-registry package, the highest
+  finding severity (gate semantics, with no escalation). `info` when nothing counts.
+- **Project config** (the same file `depward check` reads) is applied after the checks:
+  - a finding whose ID the `policy` key sets to `allow` stays in the report as allowed
+    (`allowedFindings`) but doesn't count toward risk. `ask` and `deny` overrides don't
+    change diff risk;
+  - a package on the `allow` list is reported, with every finding allowed;
+  - a package version on the `deny` list gets the gate's `denylisted` finding, and its
+    risk is `critical`.
+- **`--fail-on <level>`:** `critical` (the default, the same as the Action's),
+  `high`, `medium`, `low`, `info`, or `none`. The run fails when a package with at least
+  one counted finding (or a deny-list match) has a risk at or above the level, so
+  `--fail-on info` means "any finding".
+- **Exit codes:** `0` below the threshold, `20` threshold reached (the same code as
+  `depward check`'s deny), `1` error. A failed lookup is an error (`1`), because part of
+  the change went unchecked, but a reached threshold wins over it: the change is
+  blocked either way. The config's `onError` does not apply to diff.
+
 ## CLI
 
 ```
-depward diff <name> <fromVersion> <toVersion>
-depward diff --lockfile [--base <ref>] [--format markdown|sarif|json|terminal] [--fail-on high]
+depward diff <name> <fromVersion> <toVersion> [--fail-on <level>]
+depward diff --lockfile [--base <ref>] [--head <ref>] [--format markdown|sarif|json|terminal] [--fail-on <level>]
 ```
 
 ## GitHub Action (`action/`)
