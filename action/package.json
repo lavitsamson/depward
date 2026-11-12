@@ -1,0 +1,22 @@
+{
+  "name": "@depward/action",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub Action: behavioral diff of a pull request's dependency changes. Bundled to dist/ and committed.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "scripts": {
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "@depward/analyzer": "workspace:*",
+    "@depward/core": "workspace:*",
+    "@depward/diff": "workspace:*",
+    "@depward/gate": "workspace:*",
+    "semver": "7.8.6",
+    "yaml": "2.9.1"
+  }
+}

@@ -18,6 +18,11 @@ export interface DiffMarkdownOptions {
   maxLength?: number;
   /** Evidence items shown per finding. Default 5. */
   maxEvidence?: number;
+  /**
+   * A first line identifying the comment, such as `<!-- depward-diff -->`, so a sticky
+   * comment can be found and updated. Written as is: never pass untrusted text.
+   */
+  marker?: string;
 }
 
 /** The default {@link DiffMarkdownOptions.maxLength}. */
@@ -122,7 +127,7 @@ export function renderDiffMarkdown(view: DiffView, opts: DiffMarkdownOptions = {
   const review = view.packages.filter((p) => compareSeverity(p.risk, "medium") <= 0 || p.errors.length > 0);
   const heading = `## depward: ${plural(n, "dependency change")}${review.length > 0 ? `, ${review.length} need${review.length === 1 ? "s" : ""} review` : ""}`;
 
-  const head: string[] = [heading, ""];
+  const head: string[] = opts.marker === undefined ? [heading, ""] : [opts.marker, heading, ""];
   if (view.base !== null) {
     const target = view.head === null ? "the working tree" : code(view.head, 100);
     head.push(`Compared with ${code(view.base.slice(0, 12), 12)} (merge-base) → ${target}.`, "");

@@ -12,7 +12,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "unit", include: ["packages/*/test/**/*.test.ts"] },
+        test: { name: "unit", include: ["packages/*/test/**/*.test.ts", "action/test/**/*.test.ts"] },
       },
       {
         // Opt-in tests that hit the real npm registry. Run with `pnpm test:live`.

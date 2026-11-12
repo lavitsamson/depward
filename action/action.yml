@@ -1,0 +1,45 @@
+# depward diff as a GitHub Action. Spec: docs/specs/diff.md § GitHub Action.
+# Metadata syntax (node24 runtime): https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax
+name: depward diff
+description: Behavioral diff of a pull request's npm dependency changes. Reads registry metadata and tarballs; never runs package code.
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  fail-on:
+    description: Fail the step when a changed package's risk reaches this level (critical, high, medium, low, info, none).
+    required: false
+    default: critical
+  comment:
+    description: Post the report as one sticky pull request comment, updated on each push.
+    required: false
+    default: "true"
+  sarif:
+    description: Upload the findings to code scanning as SARIF.
+    required: false
+    default: "true"
+  base:
+    description: Git ref to compare with. Default the pull request's base branch (origin/<base>), or the commit before a push.
+    required: false
+    default: ""
+  github-token:
+    description: Token for the comment and the SARIF upload.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  risk:
+    description: The highest package risk (critical, high, medium, low, info).
+  changes:
+    description: Number of package changes checked.
+  failed:
+    description: Whether the step failed (risk reached fail-on, or a lookup failed).
+  comment-url:
+    description: URL of the sticky comment, when one was posted or updated.
+  sarif-file:
+    description: Path of the SARIF file written under RUNNER_TEMP.
+
+runs:
+  using: node24
+  main: dist/index.mjs

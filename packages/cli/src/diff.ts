@@ -139,14 +139,15 @@ function render(view: DiffView, args: DiffArgs, rt: Runtime): string {
   }
 }
 
-/** Runs `depward diff` and returns the exit code. */
-export async function runDiff(argv: string[], rt: Runtime): Promise<number> {
-  const args = parse(argv);
-  if (args.help) {
-    rt.stdout(DIFF_USAGE);
-    return EXIT.allow;
-  }
-  const started = rt.now();
+/** What {@link computeDiff} needs: a lockfile change, or one package's two versions. */
+export type DiffRequest = Pick<DiffArgs, "lockfile" | "positionals" | "base" | "head" | "concurrency" | "config" | "offline">;
+
+/**
+ * Runs the diff (lockfile mode, or one package from `positionals`) with the project
+ * config applied, and returns the view every renderer takes. Shared by `depward diff`
+ * and the GitHub Action (action/).
+ */
+export async function computeDiff(args: DiffRequest, rt: Runtime): Promise<{ view: DiffView; configSource: string | null }> {
   const { config, registry, analysisCache, overrides } = await openContext(rt, args);
   const policy = createPolicy(config);
   const opts = {
@@ -172,12 +173,28 @@ export async function runDiff(argv: string[], rt: Runtime): Promise<number> {
     const result = applyPolicy(await diffVersions(name, from, to, opts), policy);
     view = { packages: [result], findings: sortFindings(result.findings), risk: result.risk, lockfiles: [], skipped: [], base: null, head: null };
   }
+  return { view, configSource: config.source };
+}
 
-  rt.stdout(render(view, args, rt));
-  if (args.verbose) rt.stderr(`depward: config ${config.source ?? "built-in defaults"}, --fail-on ${args.failOn}
-`);
-  if (args.verbose) rt.stderr(`depward: ${view.packages.length} package change(s) checked in ${Math.round(rt.now() - started)} ms\n`);
-  if (reachesFailOn(view.packages, args.failOn)) return EXIT.deny;
+/** Whether a diff fails: 20 when a risk reaches `failOn`, 1 when a lookup failed, else 0. */
+export function diffExitCode(view: DiffView, failOn: FailOn): number {
+  if (reachesFailOn(view.packages, failOn)) return EXIT.deny;
   // A failed lookup means part of the change went unchecked.
   return view.packages.some((p) => p.errors.length > 0) ? EXIT.error : EXIT.allow;
+}
+
+/** Runs `depward diff` and returns the exit code. */
+export async function runDiff(argv: string[], rt: Runtime): Promise<number> {
+  const args = parse(argv);
+  if (args.help) {
+    rt.stdout(DIFF_USAGE);
+    return EXIT.allow;
+  }
+  const started = rt.now();
+  const { view, configSource } = await computeDiff(args, rt);
+  rt.stdout(render(view, args, rt));
+  if (args.verbose) rt.stderr(`depward: config ${configSource ?? "built-in defaults"}, --fail-on ${args.failOn}
+`);
+  if (args.verbose) rt.stderr(`depward: ${view.packages.length} package change(s) checked in ${Math.round(rt.now() - started)} ms\n`);
+  return diffExitCode(view, args.failOn);
 }

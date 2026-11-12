@@ -18,6 +18,7 @@ metadata and statically analyzes tarballs. It never runs package code.
 | [`@depward/diff`](packages/diff) | Behavioral diff between two versions, or across a lockfile change |
 | [`@depward/mcp`](packages/mcp) | MCP server that exposes gate and diff to agents |
 | [`depward`](packages/cli) | The CLI |
+| [GitHub Action](action) | `depward diff` on pull requests: one sticky comment, SARIF, and `fail-on` |
 
 ## Development
 

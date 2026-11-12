@@ -159,6 +159,36 @@ depward diff --lockfile [--base <ref>] [--head <ref>] [--format markdown|sarif|j
 - Must work on `pull_request` from forks in read-only mode. If it can't comment, it
   writes to the job summary instead.
 
+### Action details (clarified 2026-11-12)
+
+- **Runtime:** `node24`, a documented `runs.using` value (checked 2026-11-12). Bundled
+  with tsdown to `action/dist/index.mjs`, with every dependency inlined. Core's lazy
+  `createRequire` loader is swapped for an eager one in the bundle only. The data files
+  are copied to `action/dist/data/`, and the licenses of the bundled packages go to
+  `action/dist/THIRD_PARTY_LICENSES.txt`. The CI job `action-dist` rebuilds the bundle
+  and fails when it differs.
+- **No toolkit packages:** inputs, workflow commands, outputs, and the job summary are
+  written by hand, and the REST calls use `fetch`. `@actions/*` are not runtime
+  dependencies.
+- **Extra input:** `github-token` (default `${{ github.token }}`). **Outputs:** `risk`,
+  `changes`, `failed`, `comment-url`, `sarif-file`.
+- **Base:** the `base` input, or `origin/<PR base branch>` on `pull_request`, or the
+  event's `before` commit on `push`. Otherwise it fails and asks for `base`. The
+  checkout needs `fetch-depth: 0`.
+- **Sticky comment:** the first line is `<!-- depward-diff -->`. Only comments by a
+  `Bot` account are updated, so a user who pastes the marker can't take over the
+  comment. With no dependency changes, an existing comment is updated but no new one is
+  created.
+- **SARIF:** uploaded with `POST /repos/{owner}/{repo}/code-scanning/sarifs`, gzip and
+  base64, using `GITHUB_SHA` and `GITHUB_REF` (`refs/pull/N/merge` on a PR). It is also
+  written to `$RUNNER_TEMP/depward-diff.sarif`.
+- **Forks and missing permissions:** on a fork PR, nothing is written through the API.
+  A notice is shown and the report goes to the job summary. A 403 or 404 from the
+  comment or upload gives a warning that names the missing permission (and the summary,
+  for the comment). Any other API error fails the step.
+- **Step result:** it fails (exit 1) when the risk reaches `fail-on` or a lookup
+  failed, the same rule as the CLI's exit codes 20 and 1.
+
 ## Markdown report format
 
 ```
