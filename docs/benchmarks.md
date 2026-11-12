@@ -138,3 +138,41 @@ versions published more than 90 days ago (wrappy@1.0.2 in 2016, concat-map@0.0.2
 are now exempt (approved 2026-11-11, `docs/specs/gate.md` § Registry checks). A person
 publishing after OIDC releases is still flagged, and a "GitHub Actions" name without the
 registry's `trustedPublisher` record proves nothing.
+
+## Phase 3: diff noise on 50 real updates (2026-11-12)
+
+Script: `pnpm bench:diff` (`scripts/bench-diff.ts`). It takes packages from
+`data/popular-packages.json` in download order and, for each one, diffs `latest`
+against the highest earlier stable version with the same major (a patch or minor
+update). Packages whose `latest` is a prerelease or has no earlier version in the same
+major are skipped. The first 50 updates are used. Each diff runs `diffVersions` with the
+packument, the same path as `depward diff <name> <from> <to>`. The run took 17 s, with
+the disk cache warm from the Phase 2 benchmark.
+
+| Risk | Updates |
+|---|---:|
+| critical | 0 |
+| high | 1 |
+| medium | 0 |
+| low | 1 |
+| info (no findings) | 48 |
+
+Among them: 36 patch and 14 minor updates. They include semver, debug, chalk, zod,
+esbuild, postcss, ws, ajv, @babel/parser, and @types/node. There were no lookup errors.
+
+Findings, reviewed:
+
+| Update | Finding | Review |
+|---|---|---|
+| tslib 2.8.1 → 2.9.1 | `diff-publisher-changed` (high) | Correct by the rule, and the same case as `publisher-changed` in Phase 2. 2.9.1 was published by `microsoft1es`, which first appears in the maintainer list on 2.9.1 itself, after many releases by `typescript-bot`. There is no trusted publishing or provenance. From the registry this looks exactly like a takeover. The likely benign reason (Microsoft moving to its 1ES release account; `microsoft-oss-releases` and `jakebailey` were added at the same time) can only be confirmed by a human. Justified. |
+| https-proxy-agent 9.0.0 → 9.1.0 | `diff-new-dependency` (low) | Adds `proxy-agent-negotiate`. Informational. |
+
+**Result:** one `high` finding, reviewed and justified. This meets the Phase 3
+Definition of done for real updates. The synthetic attack replays are covered by
+`packages/diff/test/replay.test.ts`: the postinstall dropper, token stealer, and
+obfuscated patch are `critical`, and the npmrc worm is `high`.
+
+Caveats: 50 updates is a small sample, and these are the newest release of each package.
+Signals are compared by id, so a package that already had a signal (for example
+esbuild's networked postinstall) doesn't report it again. That is intended, and it is
+also why this noise level is so low.
