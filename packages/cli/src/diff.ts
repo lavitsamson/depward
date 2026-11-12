@@ -4,7 +4,16 @@
 
 import { parseArgs } from "node:util";
 import { REPORT_FORMATS, colorEnabled, sortFindings, type ReportFormat } from "@depward/core";
-import { DEFAULT_CONCURRENCY, diffLockfile, diffVersions } from "@depward/diff";
+import {
+  DEFAULT_CONCURRENCY,
+  FAIL_ON_LEVELS,
+  applyPolicy,
+  diffLockfile,
+  diffVersions,
+  reachesFailOn,
+  type FailOn,
+} from "@depward/diff";
+import { createPolicy } from "@depward/gate";
 import { openContext } from "./context.ts";
 import { renderDiffMarkdown, renderDiffSarif, renderDiffTerminal, serializeDiff, type DiffView } from "./diff-render.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
@@ -26,6 +35,8 @@ Options:
       --head <ref>        Read the lockfiles at this ref instead of the working tree
       --format <fmt>      terminal (default), json, markdown, sarif
       --json              Same as --format json
+      --fail-on <level>   Exit 20 when a package's risk reaches this level:
+                          critical (default), high, medium, low, info, or none
       --concurrency <n>   Packages checked at once (default ${DEFAULT_CONCURRENCY})
       --config <path>     Config file (default: depward.config.json, or the
                           "depward" key of package.json, in the current directory)
@@ -33,8 +44,12 @@ Options:
       --verbose           Also show packages without findings, and timing
   -h, --help              Show this help
 
-Exit codes: 0 report printed, 1 error (including a lookup that failed, so a
-package went unchecked; the report is still printed).
+The config's "policy" overrides set to "allow" and its "allow" list keep findings
+visible but out of the risk; a package on its "deny" list is critical.
+
+Exit codes: 0 below --fail-on, 20 risk reached --fail-on, 1 error (including a
+lookup that failed, so a package went unchecked; the report is still printed).
+A reached --fail-on wins over a failed lookup.
 `;
 
 interface DiffArgs {
@@ -44,6 +59,7 @@ interface DiffArgs {
   readonly head: string | undefined;
   readonly format: ReportFormat;
   readonly concurrency: number;
+  readonly failOn: FailOn;
   readonly config: string | undefined;
   readonly offline: boolean;
   readonly verbose: boolean;
@@ -62,6 +78,7 @@ function parse(argv: string[]): DiffArgs {
       format: { type: "string" },
       json: { type: "boolean" },
       concurrency: { type: "string" },
+      "fail-on": { type: "string" },
       config: { type: "string" },
       offline: { type: "boolean" },
       verbose: { type: "boolean" },
@@ -82,6 +99,8 @@ function parse(argv: string[]): DiffArgs {
     concurrency = Number(values.concurrency);
     if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 64) throw new UsageError("--concurrency must be an integer from 1 to 64");
   }
+  const failOn = values["fail-on"] ?? "critical";
+  if (!(FAIL_ON_LEVELS as readonly string[]).includes(failOn)) throw new UsageError(`--fail-on must be one of ${FAIL_ON_LEVELS.join(", ")}`);
   const args: DiffArgs = {
     lockfile: values.lockfile ?? false,
     positionals,
@@ -89,6 +108,7 @@ function parse(argv: string[]): DiffArgs {
     head: values.head,
     format,
     concurrency,
+    failOn: failOn as FailOn,
     config: values.config,
     offline: values.offline ?? false,
     verbose: values.verbose ?? false,
@@ -108,7 +128,7 @@ function render(view: DiffView, args: DiffArgs, rt: Runtime): string {
   const tool = { name: "depward", version: rt.version };
   switch (args.format) {
     case "json":
-      return `${JSON.stringify(serializeDiff(view, tool), null, 2)}\n`;
+      return `${JSON.stringify(serializeDiff(view, tool, { failOn: args.failOn, failed: reachesFailOn(view.packages, args.failOn) }), null, 2)}\n`;
     case "markdown":
       return renderDiffMarkdown(view);
     case "sarif":
@@ -126,9 +146,11 @@ export async function runDiff(argv: string[], rt: Runtime): Promise<number> {
     return EXIT.allow;
   }
   const started = rt.now();
-  const { registry, analysisCache, overrides } = await openContext(rt, args);
+  const { config, registry, analysisCache, overrides } = await openContext(rt, args);
+  const policy = createPolicy(config);
   const opts = {
     registry,
+    policy,
     ...(analysisCache === undefined ? {} : { analysisCache }),
     ...(overrides.data === undefined ? {} : { data: overrides.data }),
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
@@ -146,12 +168,15 @@ export async function runDiff(argv: string[], rt: Runtime): Promise<number> {
     view = { ...report };
   } else {
     const [name, from, to] = args.positionals as [string, string, string];
-    const result = await diffVersions(name, from, to, opts);
+    const result = applyPolicy(await diffVersions(name, from, to, opts), policy);
     view = { packages: [result], findings: sortFindings(result.findings), risk: result.risk, lockfiles: [], skipped: [], base: null, head: null };
   }
 
   rt.stdout(render(view, args, rt));
+  if (args.verbose) rt.stderr(`depward: config ${config.source ?? "built-in defaults"}, --fail-on ${args.failOn}
+`);
   if (args.verbose) rt.stderr(`depward: ${view.packages.length} package change(s) checked in ${Math.round(rt.now() - started)} ms\n`);
+  if (reachesFailOn(view.packages, args.failOn)) return EXIT.deny;
   // A failed lookup means part of the change went unchecked.
   return view.packages.some((p) => p.errors.length > 0) ? EXIT.error : EXIT.allow;
 }

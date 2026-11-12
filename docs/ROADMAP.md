@@ -129,7 +129,7 @@ files from M2.9).
       dependency delta, and publisher/provenance delta
 - [x] M3.2 Lockfile mode: `depward diff --lockfile [--base <ref>]`. Run with bounded
       concurrency
-- [ ] M3.3 Risk scoring and `--fail-on <severity>`
+- [x] M3.3 Risk scoring and `--fail-on <severity>`
 - [ ] M3.4 Markdown PR comment (collapsible per package) and SARIF output
 - [ ] M3.5 GitHub Action in `action/`. It posts or updates one sticky comment and
       uploads SARIF

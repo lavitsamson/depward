@@ -60,21 +60,29 @@ export function renderDiffTerminal(view: DiffView, opts: { color?: boolean; verb
   }
 
   let hidden = 0;
+  let allowedHidden = 0;
+  const findingLines = (f: Finding, allowed: boolean): string[] => {
+    const out = [`            ${paint("1", escapeUnsafe(f.id, 80))} [${allowed ? "allowed" : f.severity}]: ${escapeUnsafe(f.message, 300)}`];
+    const where = f.evidence.find((e) => e.file !== undefined);
+    if (where?.file !== undefined) out.push(`              at ${escapeUnsafe(where.file, 200)}${where.line === undefined ? "" : `:${where.line}`}`);
+    return out;
+  };
   for (const p of view.packages) {
     const shown = opts.verbose ? p.findings : p.findings.filter((f) => f.severity !== "info");
-    if (shown.length === 0 && p.errors.length === 0 && !opts.verbose) {
+    const allowed = p.allowedFindings ?? [];
+    if (!opts.verbose) allowedHidden += allowed.length;
+    if (shown.length === 0 && p.errors.length === 0 && p.listed?.list !== "deny" && !opts.verbose) {
       hidden++;
       continue;
     }
     lines.push("", `  ${paint(SGR[p.risk], p.risk.toUpperCase().padEnd(8))}  ${escapeUnsafe(changeLabel(p), 200)}  (${p.kind})`);
-    for (const f of shown) {
-      lines.push(`            ${paint("1", escapeUnsafe(f.id, 80))} [${f.severity}]: ${escapeUnsafe(f.message, 300)}`);
-      const where = f.evidence.find((e) => e.file !== undefined);
-      if (where?.file !== undefined) lines.push(`              at ${escapeUnsafe(where.file, 200)}${where.line === undefined ? "" : `:${where.line}`}`);
-    }
+    if (p.listed) lines.push(`            on the config's ${p.listed.list} list (${escapeUnsafe(JSON.stringify(p.listed.entry), 200)})`);
+    for (const f of shown) lines.push(...findingLines(f, false));
+    if (opts.verbose) for (const f of allowed) lines.push(...findingLines(f, true));
     for (const e of p.errors) lines.push(`            ${paint("1", "lookup failed")}: ${escapeUnsafe(errorLine(e), 300)}`);
   }
   if (hidden > 0) lines.push("", `${hidden} package change${hidden === 1 ? "" : "s"} with no findings not shown (--verbose shows them).`);
+  if (allowedHidden > 0) lines.push(`${allowedHidden} finding${allowedHidden === 1 ? "" : "s"} allowed by the config not shown (--verbose shows them).`);
   if (opts.verbose && view.skipped.length > 0) lines.push("", `skipped (local or bundled): ${view.skipped.map((s) => escapeUnsafe(s, 200)).join(", ")}`);
   return `${lines.join("\n")}\n`;
 }
@@ -90,7 +98,9 @@ export function renderDiffMarkdown(view: DiffView): string {
     const change = p.from === undefined ? `${p.kind} ${p.to}` : `${p.from} → ${p.to}`;
     return `| ${p.risk} | <code>${escapeMarkdown(p.name, 214)}</code> | ${escapeMarkdown(change, 100)} | ${why.map((id) => escapeMarkdown(id, 60)).join(" · ")} |`;
   });
-  const table = `| Risk | Package | Change | Why |\n|---|---|---|---|\n${rows.join("\n")}\n`;
+  const allowed = view.packages.reduce((sum, p) => sum + (p.allowedFindings?.length ?? 0), 0);
+  const note = allowed === 0 ? "" : `\n_${allowed} finding${allowed === 1 ? " is" : "s are"} allowed by the project config and not counted._\n`;
+  const table = `| Risk | Package | Change | Why |\n|---|---|---|---|\n${rows.join("\n")}\n${note}`;
   return `${heading}\n\n${table}\n${renderMarkdown(view.findings, { title: "depward diff findings" })}`;
 }
 
@@ -101,13 +111,14 @@ export function renderDiffSarif(view: DiffView, tool: ToolInfo): string {
 }
 
 /** The JSON document of `depward diff --format json`. Key order is fixed. */
-export function serializeDiff(view: DiffView, tool: ToolInfo): Record<string, unknown> {
+export function serializeDiff(view: DiffView, tool: ToolInfo, outcome?: { failOn: string; failed: boolean }): Record<string, unknown> {
   return {
     reportVersion: DIFF_JSON_VERSION,
     tool: { name: tool.name, ...(tool.version === undefined ? {} : { version: tool.version }) },
     base: view.base,
     head: view.head,
     risk: view.risk,
+    ...(outcome === undefined ? {} : { failOn: outcome.failOn, failed: outcome.failed }),
     lockfiles: view.lockfiles,
     packages: view.packages.map((p) => ({
       kind: p.kind,
@@ -117,6 +128,8 @@ export function serializeDiff(view: DiffView, tool: ToolInfo): Record<string, un
       lockfiles: p.lockfiles,
       risk: p.risk,
       findings: p.findings,
+      allowedFindings: p.allowedFindings ?? [],
+      ...(p.listed ? { listed: p.listed } : {}),
       errors: p.errors.map((e) => ({ code: e.code, message: e.message })),
       ...(p.diff === undefined
         ? {}

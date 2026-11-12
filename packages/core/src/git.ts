@@ -96,3 +96,30 @@ export async function mergeBase(ref: string, cwd: string, opts: Pick<ReadFileAtR
   }
   return hash;
 }
+
+/**
+ * Which of `paths` (relative to `cwd`) exist as files at git `ref`, in one
+ * `git ls-tree` call. Cheaper than calling {@link readFileAtRef} for each candidate.
+ *
+ * @throws DepwardError `INVALID_ARGUMENT` for a malformed ref or path, `GIT` when `cwd`
+ *   is not a repository or the ref does not exist, `TIMEOUT`.
+ */
+export async function filesAtRef(ref: string, paths: readonly string[], cwd: string, opts: Pick<ReadFileAtRefOptions, "timeoutMs"> = {}): Promise<string[]> {
+  const o = { maxBytes: 4 * 1024 * 1024, timeoutMs: opts.timeoutMs ?? 30_000 };
+  if (!SAFE_REF.test(ref) || ref.startsWith("-")) throw new DepwardError("INVALID_ARGUMENT", "invalid git ref");
+  const rels = paths.map((p) => {
+    if (p.includes("\0") || p === "") throw new DepwardError("INVALID_ARGUMENT", "invalid path");
+    return `./${p.replaceAll("\\", "/").replace(/^\.\//, "")}`;
+  });
+  if (rels.length === 0) return [];
+  const commit = await git(["rev-parse", "--verify", "--quiet", "--end-of-options", `${ref}^{commit}`], cwd, o);
+  if (!commit.ok) {
+    const inRepo = await git(["rev-parse", "--git-dir"], cwd, o);
+    throw new DepwardError("GIT", inRepo.ok ? "unknown git ref" : "not inside a git repository");
+  }
+  // Paths are matched and printed relative to cwd; -z keeps odd names intact.
+  const listed = await git(["ls-tree", "-z", "--name-only", commit.stdout.trim(), "--", ...rels], cwd, o);
+  if (!listed.ok) throw new DepwardError("GIT", "git ls-tree failed");
+  const present = new Set(listed.stdout.split("\0").filter((s) => s !== ""));
+  return paths.filter((p) => present.has(p.replaceAll("\\", "/").replace(/^\.\//, "")));
+}
