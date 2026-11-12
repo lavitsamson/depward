@@ -18,6 +18,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-versions.ts",
     "release": "pnpm build && changeset publish",
+    "build:action": "pnpm --filter ./action run build",
     "bench:diff": "node --conditions=@depward/source scripts/bench-diff.ts"
   },
   "devDependencies": {

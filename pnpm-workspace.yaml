@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - action
 
 # Our own supply chain. See CLAUDE.md "Our own supply chain".
 # Docs: https://pnpm.io/settings/build and https://pnpm.io/settings/dependency-resolution

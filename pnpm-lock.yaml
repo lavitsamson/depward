@@ -200,6 +200,27 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5)(yaml@2.9.1))
 
+  action:
+    devDependencies:
+      '@depward/analyzer':
+        specifier: workspace:*
+        version: link:../packages/analyzer
+      '@depward/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@depward/diff':
+        specifier: workspace:*
+        version: link:../packages/diff
+      '@depward/gate':
+        specifier: workspace:*
+        version: link:../packages/gate
+      semver:
+        specifier: 7.8.6
+        version: 7.8.6
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
+
   packages/analyzer:
     dependencies:
       '@depward/core':

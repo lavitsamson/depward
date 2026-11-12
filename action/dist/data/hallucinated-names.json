@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "description": "Package names that AI models are publicly documented to have hallucinated. The gate denies them even if the name now exists on the registry. Add entries only with a public source; see CONTRIBUTING.md.",
+  "entries": [
+    {
+      "name": "arangodb",
+      "ecosystem": "npm",
+      "firstSeen": "2023-06-06",
+      "source": "https://web.archive.org/web/20231224162903/https://vulcan.io/blog/ai-hallucinations-package-risk",
+      "suggestion": "arangojs"
+    },
+    {
+      "name": "react-codeshift",
+      "ecosystem": "npm",
+      "firstSeen": "2025-10-17",
+      "source": "https://www.aikido.dev/blog/agent-skills-spreading-hallucinated-npx-commands",
+      "suggestion": "jscodeshift"
+    }
+  ]
+}
