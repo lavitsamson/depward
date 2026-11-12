@@ -125,7 +125,7 @@ files from M2.9).
 
 ## Phase 3 — `@depward/diff`: behavioral diff between versions (idea #3) → release 0.2
 
-- [ ] M3.1 `diffPackages(a, b)` computes the capability delta, file delta, script delta,
+- [x] M3.1 `diffPackages(a, b)` computes the capability delta, file delta, script delta,
       dependency delta, and publisher/provenance delta
 - [ ] M3.2 Lockfile mode: `depward diff --lockfile [--base <ref>]`. Run with bounded
       concurrency

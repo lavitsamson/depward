@@ -1,0 +1,11 @@
+{
+  "description": "a patch adds reading ~/.npmrc and a publish-like PUT",
+  "risk": "high",
+  "findings": [
+    "diff-new-capability:medium",
+    "diff-new-capability:medium",
+    "diff-new-endpoint:medium",
+    "diff-new-network-in-non-network-pkg:high",
+    "diff-semver-mismatch:medium"
+  ]
+}

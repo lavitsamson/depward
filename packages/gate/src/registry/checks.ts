@@ -6,12 +6,15 @@
 // (policy/engine.ts), so config overrides apply in one place.
 
 import {
+  addedMaintainers,
   DepwardError,
   escapeUnsafe,
   findingDocsUrl,
   isDeprecated,
   isDepwardError,
+  provenanceDrop,
   publishTime,
+  publisherChange,
   resolveVersion,
   sortFindings,
   type Finding,
@@ -21,7 +24,6 @@ import {
   type VersionMeta,
 } from "@depward/core";
 import { loadGateData, type GateData } from "./data.ts";
-import { addedMaintainers, provenanceDrop, publisherChange } from "./history.ts";
 
 /** Thresholds for the age and popularity checks. Defaults follow the spec. */
 export interface RegistryThresholds {

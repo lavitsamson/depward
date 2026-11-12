@@ -3,7 +3,8 @@
 // "Previous" always means earlier by publish time (`packument.time`), not by semver, so
 // a backport published last is compared with what was published just before it.
 
-import { isPrerelease, publishTime, type Packument, type Person, type VersionMeta } from "@depward/core";
+import { isPrerelease, publishTime } from "./resolve.ts";
+import type { Packument, Person, VersionMeta } from "./types.ts";
 
 /** How many earlier versions `publisher-changed` and `provenance-dropped` look at. */
 export const HISTORY_WINDOW = 5;

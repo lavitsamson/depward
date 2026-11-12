@@ -11,6 +11,7 @@ export const ANALYSIS_REVISION: number = 1;
 export { analyzePackage } from "./analyze.ts";
 export { binaryFormat, classifyFile, looksBundled, looksMinified, type Classification } from "./classify.ts";
 export { compareSignals, profileFindings, SIGNAL_SEVERITY } from "./signals.ts";
+export { isSensitiveEnvKey } from "./text.ts";
 export {
   CAPABILITIES,
   type AnalyzeOptions,

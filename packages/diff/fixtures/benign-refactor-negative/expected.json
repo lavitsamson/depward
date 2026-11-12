@@ -1,0 +1,5 @@
+{
+  "description": "a patch that moves code into a new file without new behavior",
+  "risk": "info",
+  "findings": []
+}

@@ -230,7 +230,14 @@ importers:
         specifier: 2.9.1
         version: 2.9.1
 
-  packages/diff: {}
+  packages/diff:
+    dependencies:
+      '@depward/analyzer':
+        specifier: workspace:*
+        version: link:../analyzer
+      '@depward/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/gate:
     dependencies:
