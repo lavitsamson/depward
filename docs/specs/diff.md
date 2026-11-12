@@ -171,6 +171,30 @@ depward diff --lockfile [--base <ref>] [--head <ref>] [--format markdown|sarif|j
 
 Snippets are capped at 200 characters, with control characters and HTML escaped.
 
+### Report details (clarified 2026-11-12)
+
+- **Table:** one row per package with a non-`info` finding, a failed lookup, or a
+  deny-list match, worst first. "Why" uses short labels for the diff IDs (other IDs as
+  they are), at most four, then `+N more`. "Needs review" counts packages at `medium`
+  or above, plus failed lookups.
+- **Sections:** one `<details>` per table row. `high` and `critical` start open; lower
+  risks start collapsed. Each shows the lockfile (and line), up to 5 evidence items per
+  finding (`file:line`, snippet, detail), failed lookups, and config-allowed findings.
+- **Quiet packages** (no counted findings) and **skipped** entries are listed in
+  collapsed sections at the end.
+- **Size:** output stays under 60,000 characters (a GitHub comment is capped at
+  65,536). The table takes at most half of that; sections are added worst first until
+  one doesn't fit. A note says how many rows and sections were left out.
+- **Escaping:** every package-controlled string goes through core's `escapeMarkdown`.
+
+## SARIF (clarified 2026-11-12)
+
+Each result is located at its package's entry in the first lockfile it appears in, at
+the head (npm `"node_modules/name"`, pnpm `name@version:`, yarn `name@range:` followed
+by its version, bun `"name@version"`), so GitHub shows the alert on the PR's changed
+lines. When the entry isn't found, line 1. Lockfile-level findings point at their
+lockfile. Config-allowed findings are not included.
+
 ## Tests
 
 - Unit tests for each delta type, using pairs of synthetic profiles.

@@ -59,6 +59,11 @@ export interface PackageChangeResult {
   to: string;
   /** Lockfiles (repository-relative) the change appears in. */
   lockfiles: string[];
+  /**
+   * 1-based line of the entry in `lockfiles[0]` at the head, when it could be found
+   * (lockfile mode only). SARIF results point at it.
+   */
+  line?: number;
   /** The behavioral diff, for `updated` when both versions could be analyzed. */
   diff?: PackageDiff;
   /** Findings that count toward risk. Sorted by severity, then package, then id. */

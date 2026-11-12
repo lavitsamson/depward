@@ -20,23 +20,15 @@ exports[`diff <name> <from> <to> > terminal output lists the findings of the upd
 exports[`diff --lockfile > markdown has the summary table; SARIF points at the lockfile 1`] = `
 "## depward: 2 dependency changes, 1 needs review
 
+Compared with <code><sha></code> (merge-base) → the working tree.
+
 | Risk | Package | Change | Why |
 |---|---|---|---|
-| critical | <code>fx-a</code> | 1.0.0 → 1.0.1 | diff-new-install-script · diff-new-network-in-non-network-pkg · diff-new-sensitive-env · diff-new-capability |
-| info | <code>fx-b</code> | 2.0.0 → 2.0.1 |  |
+| 🔴 critical | <code>fx-a</code> | 1.0.0 → 1.0.1 | new install script · new network · new secret read · new capability · +2 more |
 
-## depward diff findings: 6 findings (3 high, 3 medium)
+<details open><summary>🔴 <b>critical</b> · <code>fx-a 1.0.0 → 1.0.1</code> (updated)</summary>
 
-| Risk | Package | Finding | Why |
-|---|---|---|---|
-| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-install-script"><code>diff-new-install-script</code></a> | adds or changes install scripts since 1.0.0\\: postinstall |
-| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-network-in-non-network-pkg"><code>diff-new-network-in-non-network-pkg</code></a> | uses the network; 1.0.0 did not |
-| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-sensitive-env"><code>diff-new-sensitive-env</code></a> | newly reads the whole environment |
-| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-capability"><code>diff-new-capability</code></a> | new capability\\: env (not used in 1.0.0) |
-| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-endpoint"><code>diff-new-endpoint</code></a> | 1 new hardcoded endpoint |
-| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-semver-mismatch"><code>diff-semver-mismatch</code></a> | patch release adds capability net, capability env, postinstall script |
-
-<details open><summary>🟠 <code>fx-a@&#8203;1.0.1</code>: 6 findings</summary>
+In <code>package-lock.json</code> (line 8).
 
 - **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-install-script"><code>diff-new-install-script</code></a>: adds or changes install scripts since 1.0.0\\: postinstall
   - <code>package.json</code> <code>postinstall\\: node index.js</code> new script
@@ -50,6 +42,12 @@ exports[`diff --lockfile > markdown has the summary table; SARIF points at the l
   - <code>https\\://collect.example.invalid/e</code>
 - **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-semver-mismatch"><code>diff-semver-mismatch</code></a>: patch release adds capability net, capability env, postinstall script
   - 1.0.0 → 1.0.1
+
+</details>
+
+<details><summary>1 package change with no findings</summary>
+
+- <code>fx-b</code> 2.0.0 → 2.0.1
 
 </details>
 "

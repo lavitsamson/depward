@@ -18,6 +18,7 @@ import {
 } from "@depward/core";
 import { checkNew, diffVersions, nonRegistryResult } from "./check.ts";
 import { planLockfile, type PlannedCheck, type PlannedUpdate } from "./plan.ts";
+import { lockfileLocator } from "./locate.ts";
 import { applyPolicy } from "./policy.ts";
 import type { LockfileDiffOptions, LockfileDiffReport, LockfileSummary, PackageChangeResult } from "./types.ts";
 
@@ -91,6 +92,7 @@ function remember<T extends object>(map: Map<string, T & { lockfiles: string[] }
 export async function diffLockfile(opts: LockfileDiffOptions): Promise<LockfileDiffReport> {
   const base = await resolveBase(opts);
   const lockfiles: LockfileSummary[] = [];
+  const locators = new Map<string, (name: string, version: string) => number | undefined>();
   const work: Work = { updates: new Map(), checks: new Map(), nonRegistry: new Map(), skipped: new Set() };
 
   // One `git ls-tree` per ref says which lockfiles exist, so only those are read.
@@ -103,6 +105,7 @@ export async function diffLockfile(opts: LockfileDiffOptions): Promise<LockfileD
     const baseText = atBase.has(name) ? await readFileAtRef(base, name, opts.cwd) : null;
     if (headText === null && baseText === null) continue;
     const head = headText === null ? empty(name) : parseLockfile(name, headText);
+    if (headText !== null) locators.set(name, lockfileLocator(headText));
     const before = baseText === null ? empty(name) : parseLockfile(name, baseText);
     const diff = diffLockfiles(before, head);
     lockfiles.push({
@@ -141,7 +144,10 @@ export async function diffLockfile(opts: LockfileDiffOptions): Promise<LockfileD
   const external = [...work.nonRegistry.values()].map((c) => ({ ...nonRegistryResult(c.entry, c.lockfiles[0] ?? ""), lockfiles: c.lockfiles }));
 
   const policy = opts.policy;
-  const results = [...updated, ...checked, ...external];
+  const results = [...updated, ...checked, ...external].map((r) => {
+    const line = locators.get(r.lockfiles[0] ?? "")?.(r.name, r.to);
+    return line === undefined ? r : { ...r, line };
+  });
   const packages = (policy === undefined ? results : results.map((r) => applyPolicy(r, policy))).toSorted(comparePackages);
   const findings = sortFindings([...lockfiles.flatMap((l) => l.findings), ...packages.flatMap((p) => p.findings)]);
   return {

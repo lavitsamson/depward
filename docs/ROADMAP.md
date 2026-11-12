@@ -130,7 +130,7 @@ files from M2.9).
 - [x] M3.2 Lockfile mode: `depward diff --lockfile [--base <ref>]`. Run with bounded
       concurrency
 - [x] M3.3 Risk scoring and `--fail-on <severity>`
-- [ ] M3.4 Markdown PR comment (collapsible per package) and SARIF output
+- [x] M3.4 Markdown PR comment (collapsible per package) and SARIF output
 - [ ] M3.5 GitHub Action in `action/`. It posts or updates one sticky comment and
       uploads SARIF
 - [ ] M3.6 The gate uses diff automatically when the requested package is already in the
