@@ -17,7 +17,8 @@
     "bench:fp": "node --conditions=@depward/source scripts/bench-fp.ts",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-versions.ts",
-    "release": "pnpm build && changeset publish"
+    "release": "pnpm build && changeset publish",
+    "bench:diff": "node --conditions=@depward/source scripts/bench-diff.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
