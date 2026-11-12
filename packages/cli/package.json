@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@depward/core": "workspace:*",
+    "@depward/diff": "workspace:*",
     "@depward/gate": "workspace:*"
   },
   "scripts": {

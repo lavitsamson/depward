@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "@depward/analyzer": "workspace:*",
-    "@depward/core": "workspace:*"
+    "@depward/core": "workspace:*",
+    "@depward/gate": "workspace:*"
   },
   "scripts": {
     "build": "tsdown",

@@ -11,7 +11,8 @@ function diffPackages(
   a: PackageProfile, b: PackageProfile, metaA: VersionMeta, metaB: VersionMeta,
   ctx?: { packument?: Packument; now?: number },
 ): PackageDiff;
-function diffLockfile(opts: { cwd: string; base?: string /* git ref */; head?: string }): Promise<LockfileDiffReport>;
+function diffLockfile(opts: { cwd: string; base?: string /* git ref */; head?: string; registry: RegistryClient; … }): Promise<LockfileDiffReport>;
+function diffVersions(name: string, from: string, to: string, opts: { registry: RegistryClient; … }): Promise<PackageChangeResult>;
 
 interface PackageDiff {
   name: string; from: string; to: string;
@@ -85,6 +86,36 @@ interface PackageDiff {
    "A" side.
 3. Bounded concurrency (default 8). The tarball cache is shared.
 4. Output: a report grouped by risk, with collapsed sections for low-risk changes.
+
+### Lockfile rules (clarified 2026-11-12)
+
+- **Base:** the base lockfiles are read at the merge-base of `HEAD` and `--base`
+  (default `origin/HEAD`), so a base branch that has moved on doesn't show up as reverted
+  changes. If `origin/HEAD` doesn't exist, it fails and asks for `--base`. `--head <ref>`
+  reads the head lockfiles from a ref instead of the working tree.
+- **Files:** every known lockfile name present in the directory, at the base or the
+  head, is compared. A lockfile missing at the base makes all of its entries new.
+- **Updates:** core's `diffLockfiles` reports a version bump as one removed and one
+  added entry. Registry entries with the same name are paired into updates A → B. Each
+  added version (lowest first) takes the highest unused removed version with the same
+  major, otherwise the highest unused removed version. Added entries left over are new
+  packages.
+- **New packages**, and `changed` entries (same name@version) whose integrity or
+  source changed, run the gate's registry and tarball checks. A change to the dev or
+  optional flag only is not checked.
+- **Sources:** new git, tarball-URL, and other non-npm entries emit `non-registry-source`.
+  `file`, `link`, `workspace`, and `bundled` entries are skipped (listed as skipped).
+- **Young dependencies:** `diff-new-dependency` is `high` when the new dependency's own
+  entry got `package-too-new`. New packages are checked before updates for this reason.
+- **Integrity:** for every new or updated registry entry, `lockfile-integrity-mismatch`
+  (critical) fires when the lockfile's integrity disagrees with the registry's `dist`
+  for that version. This catches a lockfile whose `resolved` URL was redirected to
+  another tarball.
+- **Limits:** at most 1,000 packages to check (`LIMIT_EXCEEDED` above that). The same
+  change in several lockfiles is checked once. Lookups that fail are reported per
+  package and make the CLI exit 1.
+- **Package code** is analyzed through the gate's tarball check, so the analysis cache
+  (ADR 0005) is shared with `depward check`.
 
 ## CLI
 

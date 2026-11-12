@@ -162,7 +162,13 @@ export function diffFindings(input: RuleInput): Finding[] {
 
   // New dependencies. Lockfile mode raises young ones to high.
   for (const dep of delta.dependencyDelta.added) {
-    add("diff-new-dependency", "low", `new dependency: ${escapeUnsafe(dep, 214)}`, [{ file: "package.json", snippet: escapeUnsafe(dep, 214) }]);
+    const young = ctx.isYoungDependency?.(dep) === true;
+    add(
+      "diff-new-dependency",
+      young ? "high" : "low",
+      `new dependency: ${escapeUnsafe(dep, 214)}${young ? " (itself published recently)" : ""}`,
+      [{ file: "package.json", snippet: escapeUnsafe(dep, 214), ...(young ? { detail: "package-too-new" } : {}) }],
+    );
   }
 
   // Publisher.

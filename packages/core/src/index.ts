@@ -24,7 +24,7 @@ export {
   type PolicyAction,
 } from "./config.ts";
 export { createDiskCache, createMemoryCache, defaultCacheDir, type Cache, type CacheEntry } from "./cache.ts";
-export { strongestHash, verifyIntegrity } from "./integrity.ts";
+export { compareIntegrity, strongestHash, verifyIntegrity } from "./integrity.ts";
 export {
   createRegistryClient,
   type RegistryClient,
@@ -47,6 +47,7 @@ export {
 } from "./registry/npmrc.ts";
 export {
   assertPackageName,
+  pickVersion,
   type Attestations,
   type Dist,
   type DistAttestations,
@@ -70,7 +71,7 @@ export {
   type PublisherChange,
 } from "./registry/history.ts";
 export { readTarball, type PackageFile, type PackageFiles, type PackageLink, type TarLimits } from "./tar.ts";
-export { diffLockfiles, parseLockfile, type LockfileChange, type LockfileDiff } from "./lockfile/index.ts";
+export { KNOWN_LOCKFILES, diffLockfiles, parseLockfile, type LockfileChange, type LockfileDiff } from "./lockfile/index.ts";
 export {
   type DependencySource,
   type Lockfile,
@@ -78,7 +79,7 @@ export {
   type LockfileFormat,
   type ParseLockfileOptions,
 } from "./lockfile/types.ts";
-export { readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";
+export { mergeBase, readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";
 export {
   REPORT_FORMATS,
   JSON_REPORT_VERSION,

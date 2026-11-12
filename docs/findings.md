@@ -193,7 +193,9 @@ tarball check. Default actions (allow / ask / deny) are applied by the policy en
 ### non-registry-source
 
 - **Default severity:** medium (default action: ask)
-- **Emitted by:** `@depward/gate` (`parseInstallCommand`)
+- **Emitted by:** `@depward/gate` (`parseInstallCommand`), and `@depward/diff` lockfile
+  mode for new lockfile entries locked to git, a tarball URL, or another non-npm source
+  (`package` is then the entry's name, and the evidence is its `resolved` value)
 - **Meaning:** a package spec installs from a git repository, GitHub shorthand
   (`user/repo`), a URL, a local path or tarball, or another non-npm protocol (`jsr:`,
   `patch:`), so depward's registry and tarball checks can't see what it installs.
@@ -396,6 +398,23 @@ downgrade its own result to `onError`.
   config or allow that exact `name@version`.
 - **False positives:** very large legitimate packages (some platform binaries) over
   the size limits.
+
+## Lockfile (`@depward/diff`, lockfile mode)
+
+### lockfile-integrity-mismatch
+
+- **Default severity:** critical (default action: deny)
+- **Emitted by:** `@depward/diff` (`diffLockfile`)
+- **Meaning:** a new or updated registry entry in the head lockfile records an integrity
+  hash that differs from the one the registry publishes for that version. Hashes are
+  compared on a shared algorithm, and a lockfile `sha1-` value is compared with
+  `dist.shasum`. The package manager installs what the lockfile says, so a lockfile
+  edited to point `resolved` at another tarball installs code that depward never
+  analyzed. The evidence shows both hashes and the lockfile's `resolved` URL.
+- **Fix:** regenerate the entry (`npm install <name>@<version>` with a clean cache), and
+  find out who changed the lockfile.
+- **False positives:** a private registry or mirror that rebuilds tarballs, when depward
+  is configured with a different registry from the one that wrote the lockfile.
 
 ## Gate: policy (`@depward/gate`)
 

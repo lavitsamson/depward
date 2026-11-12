@@ -1,0 +1,76 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`diff <name> <from> <to> > terminal output lists the findings of the update 1`] = `
+"depward diff: critical (1 package change: 1 critical)
+
+  CRITICAL  fx-a 1.0.0 → 1.0.1  (updated)
+            diff-new-install-script [high]: adds or changes install scripts since 1.0.0: postinstall
+              at package.json
+            diff-new-network-in-non-network-pkg [high]: uses the network; 1.0.0 did not
+              at index.js:1
+            diff-new-sensitive-env [high]: newly reads the whole environment
+              at index.js:1
+            diff-new-capability [medium]: new capability: env (not used in 1.0.0)
+              at index.js:1
+            diff-new-endpoint [medium]: 1 new hardcoded endpoint
+            diff-semver-mismatch [medium]: patch release adds capability net, capability env, postinstall script
+"
+`;
+
+exports[`diff --lockfile > markdown has the summary table; SARIF points at the lockfile 1`] = `
+"## depward: 2 dependency changes, 1 needs review
+
+| Risk | Package | Change | Why |
+|---|---|---|---|
+| critical | <code>fx-a</code> | 1.0.0 → 1.0.1 | diff-new-install-script · diff-new-network-in-non-network-pkg · diff-new-sensitive-env · diff-new-capability |
+| info | <code>fx-b</code> | 2.0.0 → 2.0.1 |  |
+
+## depward diff findings: 6 findings (3 high, 3 medium)
+
+| Risk | Package | Finding | Why |
+|---|---|---|---|
+| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-install-script"><code>diff-new-install-script</code></a> | adds or changes install scripts since 1.0.0\\: postinstall |
+| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-network-in-non-network-pkg"><code>diff-new-network-in-non-network-pkg</code></a> | uses the network; 1.0.0 did not |
+| 🟠 high | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-sensitive-env"><code>diff-new-sensitive-env</code></a> | newly reads the whole environment |
+| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-capability"><code>diff-new-capability</code></a> | new capability\\: env (not used in 1.0.0) |
+| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-endpoint"><code>diff-new-endpoint</code></a> | 1 new hardcoded endpoint |
+| 🟡 medium | <code>fx-a@&#8203;1.0.1</code> | <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-semver-mismatch"><code>diff-semver-mismatch</code></a> | patch release adds capability net, capability env, postinstall script |
+
+<details open><summary>🟠 <code>fx-a@&#8203;1.0.1</code>: 6 findings</summary>
+
+- **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-install-script"><code>diff-new-install-script</code></a>: adds or changes install scripts since 1.0.0\\: postinstall
+  - <code>package.json</code> <code>postinstall\\: node index.js</code> new script
+- **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-network-in-non-network-pkg"><code>diff-new-network-in-non-network-pkg</code></a>: uses the network; 1.0.0 did not
+  - <code>index.js\\:1</code> <code>fetch</code>
+- **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-sensitive-env"><code>diff-new-sensitive-env</code></a>: newly reads the whole environment
+  - <code>index.js\\:1</code> enumerates process.env (JSON.stringify(process.env))
+- **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-capability"><code>diff-new-capability</code></a>: new capability\\: env (not used in 1.0.0)
+  - <code>index.js\\:1</code> <code>JSON.stringify(process.env)</code>
+- **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-endpoint"><code>diff-new-endpoint</code></a>: 1 new hardcoded endpoint
+  - <code>https\\://collect.example.invalid/e</code>
+- **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-semver-mismatch"><code>diff-semver-mismatch</code></a>: patch release adds capability net, capability env, postinstall script
+  - 1.0.0 → 1.0.1
+
+</details>
+"
+`;
+
+exports[`diff --lockfile > terminal output: flagged packages listed, quiet ones counted 1`] = `
+"depward diff: critical (2 package changes: 1 critical, 1 info)
+base <sha>, head working tree
+
+  CRITICAL  fx-a 1.0.0 → 1.0.1  (updated)
+            diff-new-install-script [high]: adds or changes install scripts since 1.0.0: postinstall
+              at package.json
+            diff-new-network-in-non-network-pkg [high]: uses the network; 1.0.0 did not
+              at index.js:1
+            diff-new-sensitive-env [high]: newly reads the whole environment
+              at index.js:1
+            diff-new-capability [medium]: new capability: env (not used in 1.0.0)
+              at index.js:1
+            diff-new-endpoint [medium]: 1 new hardcoded endpoint
+            diff-semver-mismatch [medium]: patch release adds capability net, capability env, postinstall script
+
+1 package change with no findings not shown (--verbose shows them).
+"
+`;

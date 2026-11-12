@@ -2,8 +2,8 @@
 
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
-> **Status:** pre-release (Phase 2). `depward check` and the Claude Code hook
-> (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
+> **Status:** pre-release (Phase 3). `depward check`, `depward diff`, and the Claude Code
+> hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
 > [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -48,6 +48,35 @@ default).
 the action each one got, and failed lookups. `sarif` and `markdown` contain every
 finding, for CI and pull-request comments. Every finding ID is described in
 [docs/findings.md](../../docs/findings.md).
+
+## `depward diff`
+
+```
+depward diff [options] <name> <fromVersion> <toVersion>
+depward diff --lockfile [--base <ref>] [options]
+
+      --lockfile          Diff the lockfile changes instead of one package
+      --base <ref>        Git ref to compare with (default origin/HEAD)
+      --head <ref>        Read the lockfiles at this ref instead of the working tree
+      --format <fmt>      terminal (default), json, markdown, sarif
+      --concurrency <n>   Packages checked at once (default 8)
+      --offline, --config, --verbose, --json   As for check
+```
+
+Shows what a new version can do that the old one couldn't: new install scripts,
+network use, secret reads, endpoints, obfuscated code, dependencies, a new publisher, or
+lost provenance. With `--lockfile`, every lockfile in the current directory is compared
+with the same file at the merge-base of `HEAD` and `--base`, so it fits a pull-request
+check:
+
+```sh
+depward diff --lockfile --base origin/main --format markdown
+```
+
+Updated packages are diffed. New packages get the same registry and tarball checks as
+`depward check`. A lockfile whose integrity hash disagrees with the registry is reported
+as `lockfile-integrity-mismatch`. Exit codes: `0` report printed, `1` error, including
+a lookup that failed (the report is still printed). `--fail-on` is coming.
 
 ## Claude Code hook
 

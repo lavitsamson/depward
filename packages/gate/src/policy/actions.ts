@@ -44,6 +44,8 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   // Archive
   "tarball-integrity-mismatch": "deny",
   "tarball-unsafe": "deny",
+  // Lockfile (emitted by @depward/diff lockfile mode)
+  "lockfile-integrity-mismatch": "deny",
   // Analyzer signals
   "install-script": "allow",
   "install-script-network": "ask",

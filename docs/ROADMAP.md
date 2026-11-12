@@ -127,7 +127,7 @@ files from M2.9).
 
 - [x] M3.1 `diffPackages(a, b)` computes the capability delta, file delta, script delta,
       dependency delta, and publisher/provenance delta
-- [ ] M3.2 Lockfile mode: `depward diff --lockfile [--base <ref>]`. Run with bounded
+- [x] M3.2 Lockfile mode: `depward diff --lockfile [--base <ref>]`. Run with bounded
       concurrency
 - [ ] M3.3 Risk scoring and `--fail-on <severity>`
 - [ ] M3.4 Markdown PR comment (collapsible per package) and SARIF output
