@@ -1,0 +1,5 @@
+{
+  "description": "a minor release of an HTTP client that already used the same endpoint",
+  "risk": "info",
+  "findings": []
+}

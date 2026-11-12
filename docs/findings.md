@@ -413,3 +413,115 @@ project's config, not from the package.
   without any registry lookup.
 - **Fix:** install something else, or remove the entry from `deny`.
 - **False positives:** none; it's the project's own rule.
+
+## Diff (`@depward/diff`)
+
+Emitted by `diffPackages`, which compares an old version A with a new version B of the
+same package. `version` is B. Each finding describes something B does that A did not, so
+the same behavior is not reported again on later updates. Two or more `high` findings in
+one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
+
+### diff-new-install-script
+
+- **Default severity:** high
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B has a `preinstall`, `install`, or `postinstall` script that A didn't
+  have, or the command changed. One finding covers every such script. The evidence
+  shows the new command and the old one. `prepare` is ignored, because npm does not run
+  it for registry installs.
+- **Fix:** read the script and what it runs before updating. Install with
+  `ignore-scripts=true` if the package works without it.
+- **False positives:** native addons that switch build tools (`node-gyp` to
+  `prebuild-install`).
+
+### diff-new-capability
+
+- **Default severity:** medium; high for `child_process`, `dynamic_code`, and `native_addon`
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B uses a capability (see the analyzer spec) that A never used. There is one
+  finding per capability, with B's uses as evidence. A new `net` is reported as
+  `diff-new-network-in-non-network-pkg` instead.
+- **Fix:** check the changelog for a feature that explains it.
+- **False positives:** new features, such as a library that adds file caching (`fs`).
+
+### diff-new-network-in-non-network-pkg
+
+- **Default severity:** high
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** A had no `net` capability and B does. A package that suddenly talks to the
+  network is the most common shape of a malicious update (a stealer or a dropper).
+- **Fix:** find out what B connects to (see `diff-new-endpoint`) before updating.
+- **False positives:** a library that adds an optional HTTP feature.
+
+### diff-new-sensitive-env
+
+- **Default severity:** high
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B reads environment variables with credential-like names (the same rule
+  as `env-sensitive-read`) that A didn't read, or B enumerates the whole of
+  `process.env` and A didn't.
+- **Fix:** check why the update needs those variables. Combined with
+  `diff-new-network-in-non-network-pkg`, treat it as a token stealer.
+- **False positives:** a tool that adds support for a new provider's `*_TOKEN` variable.
+
+### diff-new-endpoint
+
+- **Default severity:** medium; high when one of the new endpoints is a raw IP address
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B contains hardcoded URLs or hosts that A didn't. One finding lists all of
+  them, raw IPs first.
+- **Fix:** check that the new hosts belong to the project or a service it documents.
+- **False positives:** new documentation links or example URLs in strings.
+
+### diff-new-obfuscation
+
+- **Default severity:** critical
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B has an `obfuscation` or `encoded-payload` signal and A had none.
+  Signals are compared by id, so obfuscation that A already had (for example a
+  protected bundle) is not reported again.
+- **Fix:** don't update. Report it to the maintainers and npm if they can't explain it.
+- **False positives:** a project that starts shipping a minified, protected build.
+
+### diff-new-dependency
+
+- **Default severity:** low (lockfile mode raises it to high when the new dependency is
+  itself young)
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B declares a dependency (`dependencies`, `optionalDependencies`, or
+  `peerDependencies`) that A didn't. There is one finding per dependency. Attackers
+  often hide the payload in a new, freshly published dependency.
+- **Fix:** check the new dependency like any other new package (`depward check`).
+- **False positives:** common; most new dependencies are ordinary.
+
+### diff-publisher-changed
+
+- **Default severity:** high
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B was published by an account that did not publish recent versions. With
+  the packument, the rule is the same as `publisher-changed`, including its exemptions
+  for established maintainers, trusted publishing, and old versions. Without the
+  packument, it fires when B's `_npmUser` differs from A's and B is not a trusted publish.
+- **Fix:** check the project's changelog or repository for the new publisher.
+- **False positives:** teams with several publishers, when no packument is available.
+
+### diff-provenance-dropped
+
+- **Default severity:** high
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** A had a provenance attestation and B has none. Unlike
+  `provenance-dropped`, this compares the two versions directly, because A → B is
+  the actual update.
+- **Fix:** stay on A until the maintainers explain the change.
+- **False positives:** a maintainer publishing one release manually.
+
+### diff-semver-mismatch
+
+- **Default severity:** medium
+- **Emitted by:** `@depward/diff` (`diffPackages`)
+- **Meaning:** B is a patch release of A (same major and minor version, including
+  `0.0.x`) but adds a capability or an install script. Patch releases are supposed
+  to be bug fixes, and attackers publish patches so that `^` and `~` ranges pick
+  them up automatically.
+- **Fix:** pin A until you have reviewed B.
+- **False positives:** projects that ship features in patch releases.

@@ -1,0 +1,10 @@
+{
+  "description": "a patch adds one obfuscated file to a normal library",
+  "risk": "critical",
+  "findings": [
+    "diff-new-capability:medium",
+    "diff-new-endpoint:medium",
+    "diff-new-obfuscation:critical",
+    "diff-semver-mismatch:medium"
+  ]
+}

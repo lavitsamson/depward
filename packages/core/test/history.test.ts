@@ -1,6 +1,6 @@
-import type { Packument, VersionMeta } from "@depward/core";
+import type { Packument, VersionMeta } from "../src/index.ts";
 import { describe, expect, test } from "vitest";
-import { provenanceDrop, publisherChange } from "../src/registry/history.ts";
+import { provenanceDrop, publisherChange } from "../src/index.ts";
 
 interface V {
   v: string;

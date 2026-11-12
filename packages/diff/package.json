@@ -25,6 +25,10 @@
     },
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "@depward/analyzer": "workspace:*",
+    "@depward/core": "workspace:*"
+  },
   "scripts": {
     "build": "tsdown",
     "check:publish": "publint --strict && attw --pack . --profile esm-only"

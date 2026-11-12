@@ -56,6 +56,19 @@ export {
   type VersionMeta,
 } from "./registry/types.ts";
 export { isDeprecated, isPrerelease, publishTime, resolveVersion, type ResolveOptions } from "./registry/resolve.ts";
+export {
+  ESTABLISHED_MAINTAINER_DAYS,
+  HISTORY_WINDOW,
+  PUBLISHER_CHANGE_MAX_AGE_DAYS,
+  addedMaintainers,
+  hasAttestations,
+  isTrustedPublish,
+  previousVersions,
+  provenanceDrop,
+  publisherChange,
+  type AddedMaintainer,
+  type PublisherChange,
+} from "./registry/history.ts";
 export { readTarball, type PackageFile, type PackageFiles, type PackageLink, type TarLimits } from "./tar.ts";
 export { diffLockfiles, parseLockfile, type LockfileChange, type LockfileDiff } from "./lockfile/index.ts";
 export {

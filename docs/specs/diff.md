@@ -7,7 +7,10 @@ version B can do.
 ## API
 
 ```ts
-function diffPackages(a: PackageProfile, b: PackageProfile, metaA: VersionMeta, metaB: VersionMeta): PackageDiff;
+function diffPackages(
+  a: PackageProfile, b: PackageProfile, metaA: VersionMeta, metaB: VersionMeta,
+  ctx?: { packument?: Packument; now?: number },
+): PackageDiff;
 function diffLockfile(opts: { cwd: string; base?: string /* git ref */; head?: string }): Promise<LockfileDiffReport>;
 
 interface PackageDiff {
@@ -31,8 +34,8 @@ interface PackageDiff {
 | ID | Default severity | Rule |
 |---|---|---|
 | `diff-new-install-script` | high | B has an install script that A didn't have, or it changed |
-| `diff-new-capability` | medium; **high** for `child_process`, `dynamic_code`, `native_addon` | capability in B and not in A |
-| `diff-new-network-in-non-network-pkg` | high | A had no `net` capability, B does |
+| `diff-new-capability` | medium; **high** for `child_process`, `dynamic_code`, `native_addon` | capability in B and not in A (except `net`, see the next row) |
+| `diff-new-network-in-non-network-pkg` | high | A had no `net` capability, B does. Replaces `diff-new-capability` for `net`, so one change counts once toward escalation |
 | `diff-new-sensitive-env` | high | new sensitive env keys, or new env enumeration |
 | `diff-new-endpoint` | medium | new hardcoded endpoint; **high** if it's a raw IP |
 | `diff-new-obfuscation` | critical | an `obfuscation` or `encoded-payload` signal appears in B and not in A |
@@ -43,6 +46,35 @@ interface PackageDiff {
 | `diff-dist-only-change` | medium | built files changed substantially but the repository's source tag is missing (best-effort; later) |
 
 **Escalation:** two or more `high` findings in one package → `critical`.
+
+### Delta rules (clarified 2026-11-12)
+
+- **Signals** are compared by `id` only. `signalDelta.added` holds every signal of B whose
+  id A doesn't have, and `removed` is the reverse. Per-file keys would re-flag the same
+  signal on every release of a bundled package, because chunk names such as
+  `index.Di8au7q4.js` change each time.
+- **Scripts** cover `preinstall`, `install`, `postinstall`, and `prepare`, taken from the
+  profiles (so the implicit `node-gyp rebuild` counts). `diff-new-install-script` ignores
+  `prepare`, because npm does not run it for registry installs.
+- **Dependencies** come from the version metadata: `dependencies`,
+  `optionalDependencies`, and `peerDependencies`, merged by name. `changed` means the
+  range changed. `diffPackages` cannot see the registry, so it emits
+  `diff-new-dependency` as `low`. Lockfile mode (M3.2) raises it to `high` when the new
+  dependency is young.
+- **`changedLarge`**: a file that is in both versions, has a different hash, and whose
+  size changed by more than 50% or by more than 100 KB.
+- **Sensitive env**: new keys that match the analyzer's `isSensitiveEnvKey`, or an
+  `env-sensitive-read` "enumerates process.env" evidence in B when A had none.
+- **Publisher**: `publisherDelta` records any change of `_npmUser.name` between A and B.
+  The finding uses core's `publisherChange` when `ctx.packument` is given, so it follows
+  the gate's exemptions: established maintainers, trusted publishing, and, with
+  `ctx.now`, versions older than 90 days. Without a packument, the finding fires when
+  the names differ and B is not a trusted publish.
+- **Provenance** compares A with B directly: `dropped` if A had attestations and B has
+  none.
+- **Semver mismatch** applies when B is a patch bump of A (same major and minor, which
+  includes `0.0.x` → `0.0.y`). Prerelease tags are ignored for this comparison.
+- `diff-dist-only-change` is deferred and not emitted yet.
 
 ## Lockfile mode
 

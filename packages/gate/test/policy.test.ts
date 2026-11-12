@@ -26,7 +26,9 @@ describe("default actions", () => {
     const documented = new Map(
       [...md.matchAll(/^### ([a-z0-9-]+)\n\n- \*\*Default severity:\*\* [a-z]+ \(default action: ([a-z]+)/gm)].map((m) => [m[1], m[2]]),
     );
-    const emitted = ids.filter((id) => id !== "unsupported-lockfile"); // core lockfile notice, not a gate finding
+    // Not gate findings: the core lockfile notice, and @depward/diff's findings, which reach
+    // the gate only through the update path (M3.6; give them default actions then).
+    const emitted = ids.filter((id) => id !== "unsupported-lockfile" && !id.startsWith("diff-"));
     for (const id of emitted) expect(DEFAULT_ACTIONS, id).toHaveProperty([id]);
     for (const [id, action] of documented) expect(DEFAULT_ACTIONS[id as string], id).toBe(action);
     expect(Object.keys(DEFAULT_ACTIONS).toSorted()).toEqual(emitted.toSorted());

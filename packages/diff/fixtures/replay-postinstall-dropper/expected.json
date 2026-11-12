@@ -1,0 +1,11 @@
+{
+  "description": "a patch adds a postinstall that downloads a second stage and runs it with node",
+  "risk": "critical",
+  "findings": [
+    "diff-new-capability:high",
+    "diff-new-endpoint:medium",
+    "diff-new-install-script:high",
+    "diff-new-network-in-non-network-pkg:high",
+    "diff-semver-mismatch:medium"
+  ]
+}
