@@ -22,4 +22,5 @@ export type {
   PackageChangeResult,
   VersionDiffOptions,
 } from "./lockfile/types.ts";
+export { locateEntry, lockfileLocator } from "./lockfile/locate.ts";
 export { FAIL_ON_LEVELS, applyPolicy, reachesFailOn, type FailOn } from "./lockfile/policy.ts";

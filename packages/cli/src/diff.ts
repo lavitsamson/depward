@@ -15,7 +15,8 @@ import {
 } from "@depward/diff";
 import { createPolicy } from "@depward/gate";
 import { openContext } from "./context.ts";
-import { renderDiffMarkdown, renderDiffSarif, renderDiffTerminal, serializeDiff, type DiffView } from "./diff-render.ts";
+import { renderDiffMarkdown } from "./diff-markdown.ts";
+import { renderDiffSarif, renderDiffTerminal, serializeDiff, type DiffView } from "./diff-render.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
 export const DIFF_USAGE: string = `Usage: depward diff [options] <name> <fromVersion> <toVersion>

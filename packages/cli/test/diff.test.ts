@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createGateData, preloadAnalyzer } from "@depward/gate";
@@ -151,7 +151,7 @@ const lock = (reg: FakeRegistry, versions: Record<string, string>): string =>
         ]),
       ),
     },
-  });
+  }, null, 2) + "\n"; // as npm writes it
 
 /** A repo whose committed lockfile has fx-a 1.0.0 and fx-b 2.0.0, updated in the working tree. */
 async function repo(reg: FakeRegistry): Promise<void> {
@@ -175,12 +175,17 @@ describe("diff --lockfile", () => {
     const reg = registry();
     await repo(reg);
     const md = await run(["diff", "--lockfile", "--base", "main", "--format", "markdown"], reg);
-    expect(md.out).toMatchSnapshot();
+    expect(md.out.replace(/<code>[0-9a-f]{12}<\/code> \(merge-base\)/,"<code><sha></code> (merge-base)")).toMatchSnapshot();
     const sarif = JSON.parse((await run(["diff", "--lockfile", "--base", "main", "--format", "sarif"], reg)).out) as {
-      runs: { results: { locations: { physicalLocation: { artifactLocation: { uri: string } } }[] }[] }[];
+      runs: { results: { locations: { physicalLocation: { artifactLocation: { uri: string }; region: { startLine: number } } }[] }[] }[];
     };
-    const uris = new Set(sarif.runs[0]?.results.map((x) => x.locations[0]?.physicalLocation.artifactLocation.uri));
-    expect([...uris]).toEqual(["package-lock.json"]);
+    const locations = sarif.runs[0]?.results.map((x) => x.locations[0]?.physicalLocation) ?? [];
+    expect([...new Set(locations.map((l) => l?.artifactLocation.uri))]).toEqual(["package-lock.json"]);
+    // Every result sits on fx-a's entry, a line the change touched.
+    const lockLines = (await readFile(join(cwd, "package-lock.json"), "utf8")).split("\n");
+    const lines = new Set(locations.map((l) => l?.region.startLine ?? 0));
+    expect(lines.size).toBe(1);
+    expect(lockLines[[...lines][0]! - 1]).toContain('"node_modules/fx-a"');
   });
 
   test("outside a git repository it fails with GIT", async () => {
