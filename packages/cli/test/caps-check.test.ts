@@ -175,9 +175,9 @@ describe("caps approve", () => {
     const notLocked = await run(["caps", "approve", "fx-net"], reg);
     expect(notLocked.code).toBe(EXIT.error);
     expect(notLocked.err).toContain("fx-net is not locked as a registry package");
-    const unused = await run(["caps", "approve", "fx-pure", "--cap", "net"], reg);
-    expect(unused.code).toBe(EXIT.error);
-    expect(unused.err).toContain("fx-pure@1.0.0 does not use net");
+    const unknown = await run(["caps", "approve", "fx-pure", "--cap", "network"], reg);
+    expect(unknown.code).toBe(EXIT.error);
+    expect(unknown.err).toContain('unknown capability "network"');
     expect(await readFile(join(cwd, "capabilities.lock.json"), "utf8")).toBe(BASELINE);
   });
 

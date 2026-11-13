@@ -28,6 +28,8 @@ export interface UseRecord {
   readonly cap: string;
   readonly member: string;
   count: number;
+  /** Decided once, when the record is created: whether the policy approves the use. */
+  readonly allowed: boolean;
 }
 
 /** In-memory records, one per (package, capability, member). */
@@ -38,14 +40,17 @@ export interface Store {
   snapshot(): ObservedFile;
 }
 
-export function createStore(): Store {
+/**
+ * @param decide Whether package `key` may use `cap` (enforce mode). Default: always.
+ */
+export function createStore(decide: (key: string, cap: string) => boolean = () => true): Store {
   const records = new SafeMap<string, UseRecord>();
   return {
     record(key, cap, member) {
       const id = `${key}\0${cap}\0${member}`;
       let r = records.get(id);
       if (r === undefined) {
-        r = { key, cap, member, count: 0 };
+        r = { key, cap, member, count: 0, allowed: decide(key, cap) };
         records.set(id, r);
       }
       return r;

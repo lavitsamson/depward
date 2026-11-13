@@ -17,18 +17,21 @@ export function utcDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-const sameSet = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((x) => b.includes(x));
-
 /**
- * The baseline entry for capabilities `caps`: the existing entry when it records exactly
- * the same capabilities (its approval is kept), else a fresh `static` approval dated
- * `today`. Entries without capabilities carry no approval fields. `kept` says whether an
- * approval (of at least one capability) was carried over.
+ * The baseline entry for detected capabilities `caps`. The existing entry is kept when it
+ * approves all of them: approvals of capabilities static analysis doesn't see (added
+ * with `caps approve --cap` for runtime enforcement) survive a re-scan. Otherwise the
+ * entry becomes a fresh `static` approval dated `today` of the detected capabilities
+ * plus the previously approved ones. Entries without capabilities carry no approval
+ * fields. `kept` says whether an approval was carried over unchanged.
  */
 export function baselineEntry(caps: readonly string[], existing: CapsEntry | undefined, today: string): { entry: CapsEntry; kept: boolean } {
-  if (existing !== undefined && sameSet(existing.capabilities, caps)) return { entry: { ...existing, capabilities: [...caps] }, kept: caps.length > 0 };
-  if (caps.length === 0) return { entry: { capabilities: [] }, kept: false };
-  return { entry: { capabilities: [...caps], approvedBy: STATIC_APPROVER, approvedAt: today }, kept: false };
+  if (existing !== undefined && caps.every((c) => existing.capabilities.includes(c))) {
+    return { entry: { ...existing, capabilities: [...existing.capabilities].toSorted() }, kept: existing.capabilities.length > 0 };
+  }
+  const union = [...new Set([...caps, ...(existing?.capabilities ?? [])])].toSorted();
+  if (union.length === 0) return { entry: { capabilities: [] }, kept: false };
+  return { entry: { capabilities: union, approvedBy: STATIC_APPROVER, approvedAt: today }, kept: false };
 }
 
 /**

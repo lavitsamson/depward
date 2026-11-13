@@ -5,9 +5,9 @@ Per-package least privilege for npm dependencies. It writes a capability lockfil
 static analysis (`fs`, `net`, `child_process`, `env`, ...). Package code is never run:
 tarballs are fetched, checked against their integrity hash, and analyzed in memory.
 
-> **Status:** Phase 4 in progress. The static layer (`depward caps scan|check|approve`)
-> and runtime observe mode (`@depward/caps/register`, `depward caps compare`) are done.
-> Enforce mode (M4.4) is next. See the
+> **Status:** Phase 4 complete: the static layer (`depward caps scan|check|approve`),
+> runtime observe mode (`@depward/caps/register`, `depward caps compare`), and enforce
+> mode (`DEPWARD_CAPS_MODE=enforce`). See the
 > [roadmap](../../docs/ROADMAP.md) and [spec](../../docs/specs/caps.md).
 
 ## Example
@@ -70,6 +70,29 @@ the call stack. Only credential-like env keys and enumeration of the whole envir
 are attributed, unless `DEPWARD_CAPS_ENV=all`. Runs accumulate in the observed file
 (`DEPWARD_CAPS_OUT` moves it). Overhead on a request benchmark is about 2%
 (`docs/benchmarks.md`).
+
+### Enforce mode
+
+```sh
+DEPWARD_CAPS_MODE=enforce node --import @depward/caps/register app.js
+```
+
+- A package's use of a capability that `capabilities.lock.json` doesn't approve throws
+  `DepwardCapabilityError` (`code: "CAPS_DENIED"`). Its `denied` property names the
+  package, the capability, the member (`fs.readFileSync`) and the call site, and the
+  real function is not called.
+- Approval uses the same reference rule as `caps check`: the exact version's entry, else
+  the package's highest approved version. A package with no entry may use nothing.
+- Importing is never denied, and application code is never restricted.
+- A missing or invalid capability lockfile stops the process at startup
+  (`code: "CAPS_POLICY"`). `DEPWARD_CAPS_LOCKFILE` points at another file.
+- Approved calls cost the same as in observe mode.
+- To allow a use static analysis didn't detect, run
+  `depward caps approve <name> --cap <cap> --reason "..."`.
+
+Everything under the limitations below applies to enforce mode too. In particular, a
+package can bypass it, and a package can catch the error itself. Treat a denial as a
+strong signal, not a guarantee.
 
 ### Limitations
 

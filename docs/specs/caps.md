@@ -50,8 +50,11 @@ prototype tampering, or native addons. Never market it as isolation.
 - **Re-scan = re-baseline.** Running `scan` again approves what is locked now:
   - Entries no longer in any lockfile are dropped.
   - New entries are approved as `static`.
-  - An entry whose `name@version` and capabilities are unchanged keeps its existing
-    `approvedBy`, `approvedAt` and `reason`.
+  - An entry whose approvals cover every detected capability keeps its existing
+    `capabilities`, `approvedBy`, `approvedAt` and `reason`. That includes approvals of
+    capabilities static analysis doesn't see (amended in M4.4).
+  - Otherwise the entry is re-approved as `static`, with the detected capabilities plus
+    the previously approved ones.
 
   CI runs `check`, never `scan`.
 - **All or nothing.** If any registry entry can't be analyzed, the scan exits 1 and
@@ -112,9 +115,10 @@ depward caps approve <name>[@version]... [--cap <cap>]... [--reason <text>] [--b
   locked registry version of the name. Nothing locked is an error.
 - **What gets approved:** each target is analyzed.
   - Without `--cap`, all of its capabilities are approved.
-  - With `--cap`, the approved set is the reference entry's capabilities plus the named
-    ones, limited to what the version uses. A named capability that the version doesn't
-    use is an error, which catches typos.
+  - With `--cap`, the approved set is the reference entry's capabilities that the version
+    still uses, plus the named ones. A named capability doesn't have to be detected
+    statically, because runtime enforcement can see uses static analysis misses (amended
+    in M4.4). An unknown capability name is an error, which catches typos.
 - **Recorded fields:**
   - `approvedBy` is `--by`, else `git config user.name`, else `manual`.
   - `approvedAt` is today's date (UTC).
@@ -191,8 +195,34 @@ answers and the design.
   reports `caps-observed-unapproved`: one finding per observed capability that the
   package's reference entry (same rule as `check`) doesn't list. It uses the same report
   formats and exit codes as `check`.
-- `DEPWARD_CAPS_MODE=enforce` arrives in M4.4. Until then, any value other than
-  `observe` prints a warning and observes.
+- `DEPWARD_CAPS_MODE` is `observe` (the default) or `enforce`. Any other value prints a
+  warning and observes.
+
+### Enforce details (M4.4 clarifications)
+
+- **Policy:** `capabilities.lock.json` in the working directory at startup
+  (`DEPWARD_CAPS_LOCKFILE` overrides). A package may use a capability when its reference
+  entry lists it. The reference rule is the same as `check`: the exact `name@version`,
+  else the highest version of that name. A package with no entry may use nothing.
+- **Fails closed:** a missing or invalid capability lockfile throws
+  `DepwardCapabilityError` (`code: "CAPS_POLICY"`) at startup, so the application never
+  runs unprotected by accident.
+- **Denial:** an unapproved use throws `DepwardCapabilityError` with
+  `code: "CAPS_DENIED"` and `denied: { package, capability, member, callSite }`. The
+  message names all four and suggests `depward caps approve <name> --cap <cap>`. The
+  real function is not called.
+  - The decision is made once per (package, capability), so approved calls cost the
+    same as in observe mode.
+  - Importing is never denied, and application code is never restricted.
+- **Same coverage as observe mode:** the globals, the env rule, and the limitations of
+  § Runtime details apply. Observations are still written.
+- **A package can catch the error itself** (for example around an optional feature).
+  The use is still prevented, but nothing is reported unless the observed file is
+  checked.
+- **Approving what static analysis misses:** `caps approve --cap <cap>` accepts any known
+  capability name, even one static analysis doesn't see in the version, so a runtime-only
+  use can be approved. A re-scan keeps an entry whose approvals cover every detected
+  capability.
 
 ## Runtime usage
 

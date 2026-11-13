@@ -58,7 +58,11 @@ export async function runCapsApprove(argv: string[], rt: Runtime): Promise<numbe
   const lines = result.approved.map((a) => {
     const key = escapeUnsafe(a.key, 214);
     const head = a.capabilities.length === 0 ? `Recorded ${key} (uses no capabilities).` : `Approved ${a.capabilities.join(", ")} for ${key}.`;
-    return a.unapproved.length === 0 ? head : `${head} Still unapproved: ${a.unapproved.join(", ")}.`;
+    const notes = [
+      ...(a.unapproved.length === 0 ? [] : [`Still unapproved: ${a.unapproved.join(", ")}.`]),
+      ...(a.notDetected.length === 0 ? [] : [`Not seen by static analysis (approved for runtime enforcement): ${a.notDetected.join(", ")}.`]),
+    ];
+    return [head, ...notes].join(" ");
   });
   rt.stdout(`${lines.join("\n")}\nWrote ${escapeUnsafe(capsFile, 200)}.\n`);
   return EXIT.allow;

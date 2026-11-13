@@ -167,7 +167,15 @@ updates: 48 info, 1 low, 1 high, reviewed and justified (`pnpm bench:diff`; revi
 - [x] M4.3 Runtime `observe` mode: `node --import @depward/caps/register`, which logs
       capability use attributed to each package
       (plus `depward caps compare`; overhead in `docs/benchmarks.md` § Phase 4)
-- [ ] M4.4 Runtime `enforce` mode, with documented limitations (this is not a sandbox)
+- [x] M4.4 Runtime `enforce` mode, with documented limitations (this is not a sandbox)
 
 **Definition of done:** the caps lockfile round-trips. Runtime attribution is correct on
 an Express + Prisma-like fixture app, with overhead under 5% on a request benchmark.
+
+**Status:** met on 2026-11-13:
+- Round-trip: `packages/caps/test/lockfile.test.ts`.
+- Attribution, observe and enforce: `packages/caps/test/runtime.test.ts`.
+- Overhead: 1.9–2.9% observe, within noise for enforce (`docs/benchmarks.md` § Phase 4).
+
+This repository dogfoods `depward caps check` in CI. Release 0.3 waits on the npm
+release setup.
