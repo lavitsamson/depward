@@ -10,3 +10,6 @@ coverage/
 !action/dist/
 *.log
 .DS_Store
+# The M4.0 spike's fixture app ships synthetic packages in node_modules/.
+!spikes/**/node_modules/
+!spikes/**/dist/
