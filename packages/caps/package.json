@@ -1,0 +1,42 @@
+{
+  "name": "@depward/caps",
+  "version": "0.0.0",
+  "description": "Per-package capability lockfile for npm dependencies, with runtime attribution of builtin use.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lavitsamson/depward.git",
+    "directory": "packages/caps"
+  },
+  "homepage": "https://github.com/lavitsamson/depward/tree/main/packages/caps#readme",
+  "bugs": "https://github.com/lavitsamson/depward/issues",
+  "type": "module",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "@depward/source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@depward/analyzer": "workspace:*",
+    "@depward/core": "workspace:*",
+    "@depward/diff": "workspace:*",
+    "@depward/gate": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check:publish": "publint --strict && attw --pack . --profile esm-only"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

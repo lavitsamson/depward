@@ -30,6 +30,48 @@ prototype tampering, or native addons. Never market it as isolation.
 - `depward caps approve <name>[@version] [--cap net]` records an approval with an
   optional `reason`.
 
+### Scan details (M4.1 clarifications)
+
+- **Input:** every known lockfile in the working directory (the same list as
+  `depward diff --lockfile`). Entries from several lockfiles are merged by `name@version`.
+- **Capabilities** are the analyzer's capability names (`fs`, `net`, `child_process`,
+  `env`, `dynamic_code`, `native_addon`, `worker`, `dynamic_require`, `crypto`,
+  `os_info`) with at least one recorded use in the version's profile, sorted
+  alphabetically. The runtime layer uses the same names (ADR 0007).
+- **Registry entries only.** `workspace`, `link` and `file` entries are first-party
+  code. `bundled` entries are already part of their parent's tarball profile. `git`,
+  `tarball` and `other` entries can't be fetched from the registry. None of them get an
+  entry; the scan reports them as skipped, and `caps check` (M4.2) reports the
+  unverifiable sources.
+- **Approval fields:** an entry with at least one capability gets
+  `"approvedBy": "static"` and `"approvedAt": "<YYYY-MM-DD, UTC>"`. An entry with no
+  capabilities has only `"capabilities": []`, as in the example above. An optional
+  `"reason"` string is kept as written (`caps approve` sets it).
+- **Re-scan = re-baseline.** Running `scan` again approves what is locked now:
+  - Entries no longer in any lockfile are dropped.
+  - New entries are approved as `static`.
+  - An entry whose `name@version` and capabilities are unchanged keeps its existing
+    `approvedBy`, `approvedAt` and `reason`.
+
+  CI runs `check`, never `scan`.
+- **All or nothing.** If any registry entry can't be analyzed, the scan exits 1 and
+  writes nothing, so a baseline never silently lacks a package. Causes: network error,
+  missing version, unsafe tarball, a tarball that doesn't match the registry's
+  integrity, or a lockfile integrity that disagrees with the registry.
+- **Limits:** at most 5,000 registry entries by default (`LIMIT_EXCEEDED`), analyzed 8
+  at a time through the gate's tarball check and its analysis cache (ADR 0005).
+- **Format:**
+  - Packages are sorted by name, then by semver version.
+  - Fields are written in the order `capabilities`, `approvedBy`, `approvedAt`,
+    `reason`.
+  - The file is 2-space indented JSON with a trailing newline.
+  - Unknown top-level or entry fields are an error (`INVALID_LOCKFILE`), as is any
+    `version` other than 1.
+
+```bash
+depward caps scan [--output capabilities.lock.json | --output -] [--json] [--offline]
+```
+
 ## Runtime layer — spike first (M4.0)
 
 Hypothesis: with `module.registerHooks()` (synchronous, applies to both `require` and
