@@ -123,6 +123,16 @@ describe("config", () => {
     expect(decisionOf(r.out).permissionDecision).toBe("deny");
   });
 
+  test("the update path reads the lockfile in CLAUDE_PROJECT_DIR", async () => {
+    const entry = { version: "1.1.0", resolved: "https://registry.npmjs.org/depward-fixture-stable/-/depward-fixture-stable-1.1.0.tgz", integrity: `sha512-${"A".repeat(86)}==` };
+    await writeFile(join(dir, "package-lock.json"), JSON.stringify({ name: "root", lockfileVersion: 3, packages: { "": { name: "root" }, "node_modules/depward-fixture-stable": entry } }));
+    const r = await hook(payload("npm i depward-fixture-stable@2.0.0", { cwd: join(dir, "sub") }), { env: { CLAUDE_PROJECT_DIR: dir } });
+    // The fixtures record no 1.1.0 tarball, so the diff's lookup fails and asks (onError).
+    const d = decisionOf(r.out);
+    expect(d.permissionDecision).toBe("ask");
+    expect(d.permissionDecisionReason).toContain("depward-fixture-stable@2.0.0 (update from 1.1.0): lookup failed");
+  });
+
   test("the payload's cwd is used without CLAUDE_PROJECT_DIR", async () => {
     await writeFile(join(dir, "depward.config.json"), JSON.stringify({ policy: { "non-registry-source": "allow" } }));
     expect((await hook(payload("npm i github:example/repo", { cwd: dir }))).out).toBe("");

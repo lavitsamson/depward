@@ -42,6 +42,10 @@ Each tool returns `allow`, `ask`, or `deny`. The text block explains why and sug
 the real package or an older version. `structuredContent` holds the full decision
 (the same JSON as `depward check --json`). Both tools are read-only.
 
+When a package is already in the project's lockfile at another version, both tools
+also diff the requested version against the locked one (`@depward/diff`), so an update
+that adds an install script, network use, or obfuscation is flagged.
+
 The project's `depward.config.json` (or the `"depward"` key of package.json) in the
 server's working directory applies, and it is re-read on every call. Options:
 `depward-mcp --config <path>` and `--offline` (or `DEPWARD_OFFLINE=1`).

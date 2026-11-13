@@ -6,6 +6,7 @@
 // { content, structuredContent, isError }.
 
 import { escapeUnsafe, isDepwardError, loadConfig, type DepwardConfig, type RegistryClient } from "@depward/core";
+import { createUpdateDiff } from "@depward/diff";
 import { checkCommand, checkSpecs, serializeDecision, type Decision, type GateOptions } from "@depward/gate";
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
@@ -42,7 +43,7 @@ const DECISION_OUTPUT = z.object({
 const ANNOTATIONS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 
 function label(p: Decision["packages"][number]): string {
-  if (p.version !== null) return `${p.name}@${p.version}`;
+  if (p.version !== null) return p.update === null ? `${p.name}@${p.version}` : `${p.name}@${p.version} (update from ${p.update.from})`;
   return p.source === "registry" ? `${p.name}@${p.range}` : p.range;
 }
 
@@ -79,7 +80,17 @@ export function createDepwardServer(opts: DepwardServerOptions): McpServer {
 
   async function respond(run: (gate: GateOptions) => Promise<Decision>) {
     try {
-      const decision = await run({ ...opts.gate, registry: opts.registry, config: await config() });
+      const gate = opts.gate ?? {};
+      // The update path (ADR 0006): a fresh callback per call re-reads the lockfiles.
+      const diffUpdate = createUpdateDiff({
+        cwd,
+        registry: opts.registry,
+        ...(gate.analysisCache === undefined ? {} : { analysisCache: gate.analysisCache }),
+        ...(gate.now === undefined ? {} : { now: gate.now }),
+        ...(gate.tarLimits === undefined ? {} : { tarLimits: gate.tarLimits }),
+        ...(gate.analyze === undefined ? {} : { analyze: gate.analyze }),
+      });
+      const decision = await run({ diffUpdate, ...gate, registry: opts.registry, config: await config() });
       return {
         content: [{ type: "text" as const, text: decisionText(decision) }],
         structuredContent: { ...serializeDecision(decision, { name: "depward", version: opts.version }) },

@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@depward/core": "workspace:*",
+    "@depward/diff": "workspace:*",
     "@depward/gate": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
     "zod": "4.6.7"

@@ -17,6 +17,7 @@ import {
   type PolicyAction,
 } from "@depward/core";
 import { HOOK_ADAPTERS, checkCommand, hookVerdict, type HookAdapter, type HookVerdict } from "@depward/gate";
+import { updateDiff } from "./context.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
 export const HOOK_USAGE: string = `Usage: depward hook <agent> [options]
@@ -91,7 +92,15 @@ async function decide(adapter: HookAdapter, input: string, args: { config?: stri
       ...(config.registry === undefined ? {} : { registry: config.registry }),
       ...(args.offline ? { offline: true } : {}),
     });
-    const decision = await Promise.race([checkCommand(parsed.request.command, { ...(rt.gate?.registry ? {} : { analysisCache: cache }), ...rt.gate, registry, config }), timeout]);
+    const analysisCache = rt.gate?.registry ? undefined : cache;
+    const gate = {
+      ...(analysisCache === undefined ? {} : { analysisCache }),
+      diffUpdate: updateDiff(projectDir, registry, analysisCache, rt.gate ?? {}),
+      ...rt.gate,
+      registry,
+      config,
+    };
+    const decision = await Promise.race([checkCommand(parsed.request.command, gate), timeout]);
     if (decision === null) return failure(config.onError, `the check didn't finish within ${budget / 1000} s`);
     return hookVerdict(decision);
   } catch (err) {

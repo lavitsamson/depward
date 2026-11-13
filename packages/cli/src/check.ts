@@ -5,7 +5,7 @@
 import { parseArgs } from "node:util";
 import { REPORT_FORMATS, colorEnabled, renderSarif, type ReportFormat } from "@depward/core";
 import { checkCommand, checkSpecs, decisionFindings, serializeDecision, type Decision } from "@depward/gate";
-import { openContext } from "./context.ts";
+import { openContext, updateDiff } from "./context.ts";
 import { renderDecisionMarkdown, renderDecisionTerminal } from "./render.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
@@ -103,7 +103,13 @@ export async function runCheck(argv: string[], rt: Runtime): Promise<number> {
 
   const started = rt.now();
   const { config, registry, analysisCache, overrides } = await openContext(rt, args);
-  const opts = { ...(analysisCache === undefined ? {} : { analysisCache }), ...overrides, registry, config };
+  const opts = {
+    ...(analysisCache === undefined ? {} : { analysisCache }),
+    diffUpdate: updateDiff(rt.cwd, registry, analysisCache, overrides),
+    ...overrides,
+    registry,
+    config,
+  };
   const decision = args.command === undefined ? await checkSpecs(args.specs, opts) : await checkCommand(args.command, opts);
 
   rt.stdout(render(decision, args, rt));

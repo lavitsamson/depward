@@ -4,7 +4,8 @@
 // Per finding, in order:
 //   1. the default action for its ID (actions.ts)
 //   2. escalations: low-downloads + package-too-new → deny both; install-script with
-//      either of those → deny; any critical finding → deny
+//      either of those → deny; two or more high `diff-*` findings → deny them (the
+//      diff's own "two highs make critical" risk rule); any critical finding → deny
 //   3. the config's `policy` override for the ID, which beats the escalations: an
 //      explicit choice in the project's config is the user's call
 //   4. the `allow` / `deny` lists. `deny` wins when both match. A denied package also
@@ -67,6 +68,18 @@ export interface Policy {
 
 const PAIRED = new Set(["low-downloads", "package-too-new"]);
 
+const isHighDiff = (f: Finding): boolean => f.id.startsWith("diff-") && f.severity === "high";
+
+/** What the escalations need to know about a package's findings as a whole. */
+interface Facts {
+  readonly present: ReadonlySet<string>;
+  readonly highDiffs: number;
+}
+
+function facts(findings: readonly Finding[]): Facts {
+  return { present: new Set(findings.map((f) => f.id)), highDiffs: findings.filter(isHighDiff).length };
+}
+
 /**
  * Compiles a config into a {@link Policy}.
  *
@@ -76,12 +89,13 @@ export function createPolicy(config: DepwardConfig = defaultConfig()): Policy {
   const allow: ListMatcher = compileList(config.allow, "allow");
   const deny: ListMatcher = compileList(config.deny, "deny");
 
-  function decide(finding: Finding, present: ReadonlySet<string>): DecidedFinding {
+  function decide(finding: Finding, { present, highDiffs }: Facts): DecidedFinding {
     let action = defaultAction(finding);
     let source: ActionSource = "default";
     const escalate =
       (PAIRED.has(finding.id) && present.has("low-downloads") && present.has("package-too-new")) ||
       (finding.id === "install-script" && (present.has("low-downloads") || present.has("package-too-new"))) ||
+      (highDiffs >= 2 && isHighDiff(finding)) ||
       finding.severity === "critical";
     if (escalate && action !== "deny") {
       action = "deny";
@@ -112,14 +126,14 @@ export function createPolicy(config: DepwardConfig = defaultConfig()): Policy {
     },
 
     decideFindings(findings) {
-      const present = new Set(findings.map((f) => f.id));
-      return findings.map((f) => decide(f, present));
+      const known = facts(findings);
+      return findings.map((f) => decide(f, known));
     },
 
     decidePackage({ name, version, findings, errors }) {
       const match = listed(name, version);
-      const present = new Set(findings.map((f) => f.id));
-      let decided = findings.map((f) => decide(f, present));
+      const known = facts(findings);
+      let decided = findings.map((f) => decide(f, known));
 
       if (match?.list === "allow") {
         decided = decided.map((d) => ({ ...d, action: "allow", source: "allow-list" }));

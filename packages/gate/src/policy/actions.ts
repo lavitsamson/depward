@@ -22,7 +22,10 @@ export function strictest(actions: Iterable<PolicyAction>): PolicyAction {
  * findings follow the gate spec's tables. Analyzer signals follow their severity
  * (critical → deny, high → ask, lower → allow), except `env-sensitive-read`: reading a
  * token-like variable alone is common in benign code, and the token-stealer shape
- * (read flowing into a network call) is `env-exfil-pattern`, which denies.
+ * (read flowing into a network call) is `env-exfil-pattern`, which denies. Update-diff
+ * findings ask when something new appears that the locked version didn't have, except
+ * new endpoints and dependencies (common in normal releases; a raw-IP endpoint is
+ * `high` and counts toward the two-highs escalation) and the semver mismatch.
  */
 export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   // Command (tokenizer)
@@ -61,6 +64,17 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   "unparseable-file": "allow",
   "oversized-file": "allow",
   "minified-only": "allow",
+  // Update diff (emitted by @depward/diff; reaches the gate through the update path)
+  "diff-new-install-script": "ask",
+  "diff-new-capability": "ask",
+  "diff-new-network-in-non-network-pkg": "ask",
+  "diff-new-sensitive-env": "ask",
+  "diff-new-endpoint": "allow",
+  "diff-new-obfuscation": "deny",
+  "diff-new-dependency": "allow",
+  "diff-publisher-changed": "ask",
+  "diff-provenance-dropped": "ask",
+  "diff-semver-mismatch": "allow",
   // Policy
   denylisted: "deny",
 };

@@ -5,8 +5,9 @@ packages you already trust: a patch that suddenly adds a `postinstall`, starts u
 network, reads tokens, or ships an obfuscated file. Package code is never run. Both
 versions are analyzed statically, in memory.
 
-> **Status:** Phase 3 in progress. `diffPackages`, `diffVersions`, and lockfile mode
-> (`diffLockfile`) are available. The GitHub Action is coming; see the [roadmap](../../docs/ROADMAP.md).
+> **Status:** Phase 3 in progress. `diffPackages`, `diffVersions`, lockfile mode
+> (`diffLockfile`), the GitHub Action, and the gate's update path (`createUpdateDiff`)
+> are available; see the [roadmap](../../docs/ROADMAP.md).
 
 ## Example
 
@@ -40,6 +41,17 @@ lockfile in a directory with its version at the merge-base of `HEAD` and a git r
 ```js
 const report = await diffLockfile({ cwd: process.cwd(), base: "origin/main", registry });
 for (const p of report.packages) console.log(p.risk, p.kind, p.name, p.from ?? "", p.to);
+```
+
+To make the gate diff updates of packages the project already locks, pass
+`createUpdateDiff` as its `diffUpdate` option:
+
+```js
+import { checkSpecs } from "@depward/gate";
+import { createUpdateDiff } from "@depward/diff";
+
+const decision = await checkSpecs(["left-pad@1.3.0"], { registry, diffUpdate: createUpdateDiff({ cwd: process.cwd(), registry }) });
+console.log(decision.packages[0].update); // { from: '1.1.3', lockfile: 'package-lock.json' } when 1.1.3 is locked
 ```
 
 `risk` is the highest finding severity. Two or more `high` findings raise it to

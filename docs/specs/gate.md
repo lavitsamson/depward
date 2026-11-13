@@ -11,7 +11,7 @@ input (package specs | shell command)
   → resolve range → version (packument)
   → registry checks          (fast, metadata only)
   → tarball checks           (analyzer; skipped if a registry check already says deny)
-  → update path? → diff vs lockfile version (Phase 3, M3.6)
+  → update path? → diff vs lockfile version (§ Update path; beside the tarball checks)
   → policy engine → Decision {action, findings[], perPackage[]}
 ```
 
@@ -143,7 +143,41 @@ How M2.3 reads this (`checkTarball`, `checkPackage`):
   server use the disk cache. Only successful analyses of verified bytes are stored, and
   an unreadable entry is recomputed.
 
-## Policy engine
+## Update path (M3.6, clarified 2026-11-13)
+
+When a requested package is already in the project's lockfile at another version, the
+gate also diffs the requested version against the locked one, with `@depward/diff`'s
+rules (`docs/specs/diff.md`).
+
+- **Injection (ADR 0006):** the gate never imports `@depward/diff`. `GateOptions` and
+  `checkPackage` take an optional `diffUpdate` callback. The CLI (`check` and `hook`)
+  and the MCP server pass diff's `createUpdateDiff({ cwd, ... })`, where `cwd` is the
+  project directory (for the hook, `CLAUDE_PROJECT_DIR` when set). Without the callback
+  the gate behaves as in Phase 2.
+- **Which locked version:** every known lockfile in `cwd` is read once per check.
+  Only registry entries count. If the requested version is locked anywhere, or the
+  package isn't locked, there is no update. Otherwise the request is compared with the
+  highest locked version that has the same major, else the highest locked version (the
+  pairing rule of lockfile mode). Downgrades are diffed too.
+- **When:** only when the tarball stage runs (not for a package the registry stage
+  already denies, or an allow-listed one). The diff runs at the same time as the
+  tarball check. It reuses the gate's profile of the requested version, so only the
+  locked version is downloaded and analyzed, through the analysis cache.
+- **Findings:** the diff's `diff-*` findings are added to the package's findings. Their
+  default actions are in `docs/findings.md`. `diff-publisher-changed` and
+  `diff-provenance-dropped` are dropped when the registry checks already report
+  `publisher-changed` or `provenance-dropped`. `diff-new-dependency` stays `low`,
+  because the gate doesn't check the new dependencies themselves.
+- **Escalation:** two or more `high` `diff-*` findings in one package escalate to
+  `deny` (the diff's rule that two highs make the risk `critical`).
+- **Errors:** a locked version missing from the registry, a failed download of it, a
+  lockfile that can't be parsed, or a callback that throws are errors, which cost
+  `onError`. A locked version whose archive is unreadable gives no diff and no error,
+  because the requested version was checked on its own.
+- **Output:** `PackageDecision.update` is `{ from, lockfile }` or `null` (JSON:
+  `packages[].update`, an added field, so `decisionVersion` stays 1). Reasons and
+  labels read `name@version (update from x)`.
+
 
 - Start from the default action per finding ID. Apply config overrides, then the
   `allow`/`deny` lists (glob matching on names, exact matching on `name@version`).
