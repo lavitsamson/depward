@@ -2,3 +2,4 @@
 export const VERSION: string = "0.0.0";
 
 export { createDepwardServer, decisionText, type DepwardServerOptions } from "./server.ts";
+export { diffText } from "./diff.ts";

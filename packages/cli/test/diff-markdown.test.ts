@@ -2,7 +2,8 @@ import { DepwardError, type Finding, type Severity } from "@depward/core";
 import type { PackageChangeResult } from "@depward/diff";
 import { describe, expect, test } from "vitest";
 import { renderDiffMarkdown } from "../src/diff-markdown.ts";
-import { renderDiffSarif, type DiffView } from "../src/diff-render.ts";
+import type { DiffView } from "@depward/diff";
+import { renderDiffSarif } from "../src/diff-render.ts";
 
 const DOCS = "https://github.com/lavitsamson/depward/blob/main/docs/findings.md";
 

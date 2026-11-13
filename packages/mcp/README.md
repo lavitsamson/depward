@@ -37,12 +37,16 @@ serveStdio(() => createDepwardServer({ registry, version: VERSION }));
   checks every package it would install or execute.
 - **`check_packages({ specs })`**: checks package specs such as `left-pad@1.3.0`,
   `@scope/name@^2`, or `alias@npm:real@1`.
+- **`diff_versions({ name, from, to })`**: compares two versions of a package (both
+  tarballs analyzed, never run) and reports what the new one does that the old one
+  didn't, with a risk level from `info` to `critical`. `structuredContent` is the same
+  JSON as `depward diff <name> <from> <to> --json`.
 
-Each tool returns `allow`, `ask`, or `deny`. The text block explains why and suggests
+The check tools return `allow`, `ask`, or `deny`. The text block explains why and suggests
 the real package or an older version. `structuredContent` holds the full decision
-(the same JSON as `depward check --json`). Both tools are read-only.
+(the same JSON as `depward check --json`). All tools are read-only.
 
-When a package is already in the project's lockfile at another version, both tools
+When a package is already in the project's lockfile at another version, the check tools
 also diff the requested version against the locked one (`@depward/diff`), so an update
 that adds an install script, network use, or obfuscation is flagged.
 

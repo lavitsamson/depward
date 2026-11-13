@@ -1,4 +1,4 @@
-// The depward MCP server: `check_packages` and `check_install_command`.
+// The depward MCP server: `check_packages`, `check_install_command`, and `diff_versions`.
 // Spec: docs/specs/gate.md §MCP server. SDK: @modelcontextprotocol/server v2 (ADR 0004).
 // API checked 2026-11-10 against https://ts.sdk.modelcontextprotocol.io/v2/servers/tools.html
 // and the package's type declarations: registerTool(name, { title, description,
@@ -10,6 +10,7 @@ import { createUpdateDiff } from "@depward/diff";
 import { checkCommand, checkSpecs, serializeDecision, type Decision, type GateOptions } from "@depward/gate";
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
+import { DIFF_DESCRIPTION, diffText, runDiffVersions } from "./diff.ts";
 
 /** Options for {@link createDepwardServer}. */
 export interface DepwardServerOptions {
@@ -27,7 +28,9 @@ export interface DepwardServerOptions {
 
 const INSTRUCTIONS = `depward checks npm packages before they are installed: whether they exist (AI models often invent package names), how new and popular they are, who published them, and what their tarball does (install scripts, credential theft, obfuscation). It never runs package code.
 
-Call check_install_command BEFORE running any command that installs or executes packages (npm/pnpm/yarn/bun install or add, npx, pnpm dlx, bunx, create/init). If the result is "deny", do not run the command: switch to the suggested package or version, or ask the user. If it is "ask", tell the user what depward found and let them decide.`;
+Call check_install_command BEFORE running any command that installs or executes packages (npm/pnpm/yarn/bun install or add, npx, pnpm dlx, bunx, create/init). If the result is "deny", do not run the command: switch to the suggested package or version, or ask the user. If it is "ask", tell the user what depward found and let them decide.
+
+Before updating a dependency that is already installed to another version, call diff_versions: it reports what the new version does that the old one did not. On risk "critical", do not update.`;
 
 const ACTION = z.enum(["allow", "ask", "deny"]);
 
@@ -38,6 +41,21 @@ const DECISION_OUTPUT = z.object({
   reasons: z.array(z.string()),
   packages: z.array(z.looseObject({ name: z.string(), action: ACTION })),
   findings: z.array(z.looseObject({ id: z.string(), action: ACTION })),
+});
+
+const DIFF_INPUT = z.object({
+  name: z.string().min(1).max(214).describe('The package name, e.g. "left-pad" or "@scope/name".'),
+  from: z.string().min(1).max(256).describe("The version in use now (exact version or dist-tag)."),
+  to: z.string().min(1).max(256).describe("The version to update to (exact version or dist-tag)."),
+});
+
+const SEVERITY = z.enum(["critical", "high", "medium", "low", "info"]);
+
+const DIFF_OUTPUT = z.object({
+  reportVersion: z.literal(1),
+  tool: z.object({ name: z.string(), version: z.string().optional() }),
+  risk: SEVERITY,
+  packages: z.array(z.looseObject({ name: z.string(), to: z.string(), risk: SEVERITY })),
 });
 
 const ANNOTATIONS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
@@ -131,6 +149,25 @@ export function createDepwardServer(opts: DepwardServerOptions): McpServer {
       annotations: ANNOTATIONS,
     },
     ({ specs }) => respond((gate) => checkSpecs(specs, gate)),
+  );
+
+  server.registerTool(
+    "diff_versions",
+    {
+      title: "Diff two versions of a package",
+      description: DIFF_DESCRIPTION,
+      inputSchema: DIFF_INPUT,
+      outputSchema: DIFF_OUTPUT,
+      annotations: ANNOTATIONS,
+    },
+    async (input) => {
+      try {
+        const { view, json } = await runDiffVersions(input, { registry: opts.registry, config: await config(), gate: opts.gate ?? {}, version: opts.version });
+        return { content: [{ type: "text" as const, text: diffText(view) }], structuredContent: json };
+      } catch (err) {
+        return failure(err);
+      }
+    },
   );
 
   return server;

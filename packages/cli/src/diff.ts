@@ -3,20 +3,23 @@
 // parseArgs (https://nodejs.org/api/util.html#utilparseargsconfig).
 
 import { parseArgs } from "node:util";
-import { REPORT_FORMATS, colorEnabled, sortFindings, type ReportFormat } from "@depward/core";
+import { REPORT_FORMATS, colorEnabled, type ReportFormat } from "@depward/core";
 import {
   DEFAULT_CONCURRENCY,
   FAIL_ON_LEVELS,
   applyPolicy,
   diffLockfile,
   diffVersions,
+  packageView,
   reachesFailOn,
+  serializeDiff,
+  type DiffView,
   type FailOn,
 } from "@depward/diff";
 import { createPolicy } from "@depward/gate";
 import { openContext } from "./context.ts";
 import { renderDiffMarkdown } from "./diff-markdown.ts";
-import { renderDiffSarif, renderDiffTerminal, serializeDiff, type DiffView } from "./diff-render.ts";
+import { renderDiffSarif, renderDiffTerminal } from "./diff-render.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
 export const DIFF_USAGE: string = `Usage: depward diff [options] <name> <fromVersion> <toVersion>
@@ -170,8 +173,7 @@ export async function computeDiff(args: DiffRequest, rt: Runtime): Promise<{ vie
     view = { ...report };
   } else {
     const [name, from, to] = args.positionals as [string, string, string];
-    const result = applyPolicy(await diffVersions(name, from, to, opts), policy);
-    view = { packages: [result], findings: sortFindings(result.findings), risk: result.risk, lockfiles: [], skipped: [], base: null, head: null };
+    view = packageView(applyPolicy(await diffVersions(name, from, to, opts), policy));
   }
   return { view, configSource: config.source };
 }

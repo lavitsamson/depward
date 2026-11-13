@@ -5,9 +5,9 @@ packages you already trust: a patch that suddenly adds a `postinstall`, starts u
 network, reads tokens, or ships an obfuscated file. Package code is never run. Both
 versions are analyzed statically, in memory.
 
-> **Status:** Phase 3 in progress. `diffPackages`, `diffVersions`, lockfile mode
-> (`diffLockfile`), the GitHub Action, and the gate's update path (`createUpdateDiff`)
-> are available; see the [roadmap](../../docs/ROADMAP.md).
+> **Status:** Phase 3 complete: `diffPackages`, `diffVersions`, lockfile mode
+> (`diffLockfile`), the GitHub Action, the gate's update path (`createUpdateDiff`), and
+> the MCP tool `diff_versions`. See the [roadmap](../../docs/ROADMAP.md).
 
 ## Example
 

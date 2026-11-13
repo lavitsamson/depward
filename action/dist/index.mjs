@@ -19391,6 +19391,20 @@ function comparePackages(a, b) {
 }
 // ../packages/diff/src/lockfile/update.ts
 init_src$1();
+// ../packages/diff/src/report.ts
+init_src$1();
+/** The view of one package's diff (`diffVersions`, after any policy). */
+function packageView(result) {
+	return {
+		packages: [result],
+		findings: sortFindings(result.findings),
+		risk: result.risk,
+		lockfiles: [],
+		skipped: [],
+		base: null,
+		head: null
+	};
+}
 // ../packages/diff/src/index.ts
 /** The version of `@depward/diff`. Kept in sync with package.json by `scripts/sync-versions.ts`. */
 const VERSION = "0.0.0";
@@ -19679,16 +19693,7 @@ async function computeDiff(args, rt) {
 	}) };
 	else {
 		const [name, from, to] = args.positionals;
-		const result = applyPolicy(await diffVersions(name, from, to, opts), policy);
-		view = {
-			packages: [result],
-			findings: sortFindings(result.findings),
-			risk: result.risk,
-			lockfiles: [],
-			skipped: [],
-			base: null,
-			head: null
-		};
+		view = packageView(applyPolicy(await diffVersions(name, from, to, opts), policy));
 	}
 	return {
 		view,
