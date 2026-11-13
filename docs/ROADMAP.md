@@ -135,7 +135,7 @@ files from M2.9).
       uploads SARIF
 - [x] M3.6 The gate uses diff automatically when the requested package is already in the
       lockfile (the update path)
-- [ ] M3.7 MCP tool `diff_versions`
+- [x] M3.7 MCP tool `diff_versions`
 
 **Definition of done:**
 - Synthetic replays of three documented attack patterns are flagged as `high` or above:
@@ -144,6 +144,12 @@ files from M2.9).
   3. a new obfuscated blob in a patch release.
 - 50 real patch or minor updates of popular packages produce no `high` findings, or each
   one is reviewed and justified.
+
+**Status:** met on 2026-11-13. The replay pairs in `packages/diff/fixtures/` (postinstall
+dropper, token stealer, obfuscated patch) are `critical` in `diffPackages` and denied by
+the gate's update path (`packages/diff/test/replay.test.ts`, `update.test.ts`). 50 real
+updates: 48 info, 1 low, 1 high, reviewed and justified (`pnpm bench:diff`; review:
+`docs/benchmarks.md` § Phase 3).
 
 ---
 

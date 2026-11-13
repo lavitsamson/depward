@@ -7,7 +7,7 @@ code. There are two ways to connect it to an agent:
 | | How it works | Enforced? | Agents |
 |---|---|---|---|
 | **Hook** (`depward hook claude`) | The agent runs depward before every shell command. A `deny` blocks the command. | Yes. The agent can't skip it. | [Claude Code](claude-code.md) |
-| **MCP server** (`depward-mcp`) | The agent gets `check_install_command` and `check_packages` tools and is told to call them before installing. | No. The agent chooses to call the tools. | [Claude Code](claude-code.md#mcp-server-optional), [Cursor](cursor.md), [Codex CLI](codex.md), and any MCP client |
+| **MCP server** (`depward-mcp`) | The agent gets `check_install_command`, `check_packages`, and `diff_versions` tools and is told to call them before installing or updating. | No. The agent chooses to call the tools. | [Claude Code](claude-code.md#mcp-server-optional), [Cursor](cursor.md), [Codex CLI](codex.md), and any MCP client |
 
 Use the hook where one exists. Cursor and Codex CLI have hook systems of their own, but
 depward has no adapter for them yet ([roadmap](../ROADMAP.md)), so for those agents

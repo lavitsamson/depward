@@ -1,8 +1,8 @@
 # depward with Cursor
 
-Cursor uses depward through its **MCP server**. The agent gets two tools,
-`check_install_command` and `check_packages`, and the server's instructions tell it to
-call them before installing anything.
+Cursor uses depward through its **MCP server**. The agent gets three tools,
+`check_install_command`, `check_packages`, and `diff_versions`, and the server's
+instructions tell it to call them before installing or updating anything.
 
 The MCP server is **advisory**: nothing stops the agent from running an install without
 calling the tool first. depward has no adapter for Cursor's own hooks yet
@@ -66,7 +66,8 @@ Each call returns `allow`, `ask`, or `deny` with a reason per finding. For `deny
 text tells the agent not to run the command and names the real package or an older
 version to use instead. For `ask` it tells the agent to check with you first. The full
 decision (the same JSON as `depward check --json`) is in the result's
-`structuredContent`. Both tools are read-only: they read the command, never run it.
+`structuredContent`. `diff_versions` returns a risk level (`info` to `critical`) for
+an update instead. All tools are read-only: they read the command, never run it.
 
 ## Claude Code hooks in Cursor
 

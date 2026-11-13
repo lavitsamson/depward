@@ -314,7 +314,7 @@ Use the official TypeScript MCP SDK (check the current API). Transport: stdio.
 Tools:
 - `check_packages({ specs: string[] })` → decision plus findings
 - `check_install_command({ command: string })` → decision plus findings
-- `diff_versions({ name, from, to })` (Phase 3)
+- `diff_versions({ name, from, to })` (Phase 3) → risk plus findings
 
 Tool descriptions should tell the agent to call `check_install_command` *before* running
 any install, and to prefer suggested alternatives when the result is `deny`.
@@ -323,7 +323,7 @@ How M2.7 reads this (`packages/mcp`; SDK v2, ADR 0004; API checked 2026-11-10 at
 https://ts.sdk.modelcontextprotocol.io/v2/):
 - SDK: `@modelcontextprotocol/server@2.4.0`, `zod@4.6.7` (`zod/v4`), served with
   `serveStdio`. The binary is `depward-mcp [--config <path>] [--offline]`.
-- Both tools are annotated `readOnlyHint: true`, `destructiveHint: false`,
+- The tools are annotated `readOnlyHint: true`, `destructiveHint: false`,
   `idempotentHint: true`, `openWorldHint: true`. Input: `command` (1–10,000 chars), or
   `specs` (1–50 specs, each up to 500 chars). The server's `instructions` repeat when to
   call it.
@@ -338,6 +338,23 @@ https://ts.sdk.modelcontextprotocol.io/v2/):
   lifetime (shared in-memory cache), and `preloadAnalyzer()` runs before serving.
   There is no time budget beyond the registry's per-request timeouts, because MCP calls
   are not in the agent's hot path the way the hook is.
+- `check_packages` and `check_install_command` use the update path (§ Update path),
+  with the lockfiles in the server's working directory, re-read on every call.
+
+How M3.7 reads `diff_versions` (clarified 2026-11-13):
+- The same as `depward diff <name> <from> <to> --json`: `diffVersions` with the project
+  config applied (`applyPolicy`). `structuredContent` is diff's `serializeDiff`
+  (`reportVersion` 1, without `failOn`/`failed`, which only the CLI has). Input:
+  `name` (1–214 chars, checked with core's `assertPackageName`), `from` and `to`
+  (1–256 chars, exact versions or dist-tags). Same annotations as the other tools.
+- Text block: `depward: risk <level> for <name> <from> → <to>`, one line per counted
+  finding (at most 25; `structuredContent` has all), the number of findings the config
+  allows, one line per failed lookup, then what to do: critical → don't update; high →
+  tell the user; a failed lookup → part of the diff is unchecked, tell the user.
+- An invalid name or config is a tool error. A missing version or a failed download is
+  not: it is reported in the result, as in the CLI.
+- The registry checks of the new version (`check_packages`) are not part of this tool.
+  The server's `instructions` tell the agent to call `diff_versions` before updating.
 
 ## Data files
 

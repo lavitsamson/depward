@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { DepwardError, isDepwardError } from "@depward/core";
 import { FAIL_ON_LEVELS, reachesFailOn, type FailOn } from "@depward/diff";
 import { renderDiffMarkdown } from "../../packages/cli/src/diff-markdown.ts";
-import { renderDiffSarif, renderDiffTerminal, type DiffView } from "../../packages/cli/src/diff-render.ts";
+import type { DiffView } from "@depward/diff";
+import { renderDiffSarif, renderDiffTerminal } from "../../packages/cli/src/diff-render.ts";
 import { appendSummary, getBooleanInput, getInput, setOutputs, type Env, type Log } from "./env.ts";
 import { GitHubApiError, upsertStickyComment, type GitHub } from "./github.ts";
 

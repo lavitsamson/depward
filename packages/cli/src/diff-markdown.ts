@@ -6,7 +6,7 @@
 
 import { compareSeverity, escapeMarkdown, type Finding, type Severity } from "@depward/core";
 import type { PackageChangeResult } from "@depward/diff";
-import type { DiffView } from "./diff-render.ts";
+import type { DiffView } from "@depward/diff";
 
 /** Options for {@link renderDiffMarkdown}. */
 export interface DiffMarkdownOptions {
