@@ -1,0 +1,3 @@
+{
+  "orm-client": ["fs", "crypto", "env"]
+}

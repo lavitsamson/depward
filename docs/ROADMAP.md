@@ -155,9 +155,10 @@ updates: 48 info, 1 low, 1 high, reviewed and justified (`pnpm bench:diff`; revi
 
 ## Phase 4 — `@depward/caps`: per-package capabilities (idea #1) → release 0.3
 
-- [ ] M4.0 **Spike (time-boxed, 3 days):** prove `module.registerHooks` can give each
+- [x] M4.0 **Spike (time-boxed, 3 days):** prove `module.registerHooks` can give each
       importing package its own wrapped builtin, for both ESM and CJS. Measure
       overhead. Write the result as an ADR. Stop and report if it isn't feasible
+      (done 2026-11-13: feasible; ADR 0007, prototype in `spikes/m4.0-caps/`)
 - [ ] M4.1 `depward caps scan` writes `capabilities.lock.json` using static analysis
 - [ ] M4.2 `depward caps check` in CI fails on new capabilities that haven't been
       approved. `depward caps approve <pkg>` approves them
