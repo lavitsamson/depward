@@ -24,6 +24,8 @@ Commands:
   diff --lockfile             Diff the dependency changes in the lockfiles
   hook claude                 Claude Code PreToolUse hook (hook input on stdin)
   caps scan                   Write capabilities.lock.json from the lockfiles
+  caps check                  Fail on capabilities nobody approved (for CI)
+  caps approve <name>         Approve a package's capabilities
 
 Run "depward <command> --help" for a command's options.
 

@@ -5,9 +5,9 @@ Per-package least privilege for npm dependencies. It writes a capability lockfil
 static analysis (`fs`, `net`, `child_process`, `env`, ...). Package code is never run:
 tarballs are fetched, checked against their integrity hash, and analyzed in memory.
 
-> **Status:** Phase 4 in progress. M4.1 (`scanCapabilities`, `depward caps scan`) is
-> done. `caps check` / `caps approve` (M4.2) and the runtime layer
-> (`@depward/caps/register`, M4.3–M4.4) are next. See the
+> **Status:** Phase 4 in progress. The static layer is done: `scanCapabilities`,
+> `checkCapabilities`, `approveCapabilities` (`depward caps scan|check|approve`). The
+> runtime layer (`@depward/caps/register`, M4.3–M4.4) is next. See the
 > [roadmap](../../docs/ROADMAP.md) and [spec](../../docs/specs/caps.md).
 
 ## Example
@@ -46,5 +46,7 @@ depward caps scan
 
 A re-scan is a re-baseline: it approves what is locked now. Approvals of entries whose
 capabilities are unchanged are kept, and entries that are no longer locked are dropped.
-Only registry packages are listed. Workspace, link, file, bundled, git and tarball-URL
+In CI, `depward caps check` (or `checkCapabilities`) fails when a locked version uses
+a capability its entry doesn't list (`caps-unapproved`); `depward caps approve <name>`
+records the approval. Only registry packages are listed. Workspace, link, file, bundled, git and tarball-URL
 entries are reported as skipped.

@@ -161,8 +161,9 @@ updates: 48 info, 1 low, 1 high, reviewed and justified (`pnpm bench:diff`; revi
       (done 2026-11-13: feasible; ADR 0007, prototype in `spikes/m4.0-caps/`)
 - [x] M4.1 `depward caps scan` writes `capabilities.lock.json` using static analysis
       (scan rules: `docs/specs/caps.md` § Scan details)
-- [ ] M4.2 `depward caps check` in CI fails on new capabilities that haven't been
-      approved. `depward caps approve <pkg>` approves them
+- [x] M4.2 `depward caps check` in CI fails on new capabilities that haven't been
+      approved. `depward caps approve <pkg>` approves them (rules: `docs/specs/caps.md`
+      § Check details, § Approve details)
 - [ ] M4.3 Runtime `observe` mode: `node --import @depward/caps/register`, which logs
       capability use attributed to each package
 - [ ] M4.4 Runtime `enforce` mode, with documented limitations (this is not a sandbox)

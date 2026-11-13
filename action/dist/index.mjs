@@ -18750,6 +18750,7 @@ const DEFAULT_ACTIONS = {
 	"diff-new-obfuscation": "deny",
 	"diff-new-dependency": "allow",
 	"diff-publisher-changed": "ask",
+	"caps-unapproved": "ask",
 	"diff-provenance-dropped": "ask",
 	"diff-semver-mismatch": "allow",
 	denylisted: "deny"
@@ -19529,7 +19530,7 @@ function renderDiffMarkdown(view, opts = {}) {
 	const shown = view.packages.filter(flagged);
 	const quiet = view.packages.filter((p) => !flagged(p));
 	const review = view.packages.filter((p) => compareSeverity(p.risk, "medium") <= 0 || p.errors.length > 0);
-	const heading = `## depward: ${plural(n, "dependency change")}${review.length > 0 ? `, ${review.length} need${review.length === 1 ? "s" : ""} review` : ""}`;
+	const heading = `## ${opts.title ?? "depward"}: ${plural(n, "dependency change")}${review.length > 0 ? `, ${review.length} need${review.length === 1 ? "s" : ""} review` : ""}`;
 	const head = opts.marker === void 0 ? [heading, ""] : [
 		opts.marker,
 		heading,
@@ -19609,10 +19610,13 @@ function counts(packages) {
 	return `${n} package change${n === 1 ? "" : "s"}: ${parts.join(", ")}`;
 }
 const errorLine = (e) => `${e.code}: ${e.message}`;
-/** The terminal view. Packages without findings are counted, not listed, unless `verbose`. */
+/**
+* The terminal view. Packages without findings are counted, not listed, unless `verbose`.
+* `title` replaces the leading "depward diff" (for `depward caps check`).
+*/
 function renderDiffTerminal(view, opts = {}) {
 	const paint = (sgr, s) => opts.color ? `\u001b[${sgr}m${s}\u001b[0m` : s;
-	const lines = [`depward diff: ${paint(SGR[view.risk], view.risk)} (${counts(view.packages)})`];
+	const lines = [`${opts.title ?? "depward diff"}: ${paint(SGR[view.risk], view.risk)} (${counts(view.packages)})`];
 	if (view.base !== null) lines.push(`base ${view.base.slice(0, 12)}, head ${view.head === null ? "working tree" : escapeUnsafe(view.head, 100)}`);
 	for (const l of view.lockfiles) for (const f of l.findings) lines.push(`${escapeUnsafe(l.path, 200)}: ${escapeUnsafe(f.message, 300)}`);
 	let hidden = 0;
@@ -19654,13 +19658,13 @@ function renderDiffSarif(view, tool) {
 			uri: p.lockfiles[0] ?? "package.json",
 			line: p.line ?? 1
 		};
-		where.set(`${p.name} ${p.to}`, loc);
+		where.set(`${p.name}\0${p.to}`, loc);
 		if (!where.has(p.name)) where.set(p.name, loc);
 	}
 	const lockfilePaths = new Set(view.lockfiles.map((l) => l.path));
 	return renderSarif(view.findings, {
 		tool,
-		locate: (f) => where.get(`${f.package} ${f.version ?? ""}`) ?? where.get(f.package) ?? {
+		locate: (f) => where.get(`${f.package}\0${f.version ?? ""}`) ?? where.get(f.package) ?? {
 			uri: lockfilePaths.has(f.package) ? f.package : "package.json",
 			line: 1
 		}
