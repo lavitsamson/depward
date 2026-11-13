@@ -18604,25 +18604,84 @@ function reported(findings, name, version) {
 		version
 	}));
 }
+// ../packages/gate/src/update.ts
+init_src$1();
+const DUPLICATES = {
+	"diff-publisher-changed": "publisher-changed",
+	"diff-provenance-dropped": "provenance-dropped"
+};
+/**
+* Calls `diffUpdate` and normalizes the result. Never throws: a callback that throws
+* becomes an error (which costs `onError`), and findings that duplicate a registry
+* finding in `existing` are dropped.
+*/
+async function runUpdateDiff(diffUpdate, request, existing) {
+	let result;
+	try {
+		result = await diffUpdate(request);
+	} catch (err) {
+		return {
+			update: null,
+			findings: [],
+			errors: [isDepwardError(err) ? err : new DepwardError("INTERNAL", `the update diff for ${request.name} failed`, { cause: err })]
+		};
+	}
+	if (result === null) return {
+		update: null,
+		findings: [],
+		errors: []
+	};
+	const present = new Set(existing.map((f) => f.id));
+	const findings = result.findings.filter((f) => {
+		const twin = Object.hasOwn(DUPLICATES, f.id) ? DUPLICATES[f.id] : void 0;
+		return twin === void 0 || !present.has(twin);
+	});
+	return {
+		update: {
+			from: result.from,
+			lockfile: result.lockfile
+		},
+		findings,
+		errors: [...result.errors]
+	};
+}
 // ../packages/gate/src/check.ts
 init_src$1();
 /**
-* Runs the registry checks, then (when a version resolved) the tarball checks. Never
-* throws for registry, network, or archive failures; see `errors` and the `tarball-*`
-* findings.
+* Runs the registry checks, then (when a version resolved) the tarball checks and, with
+* `opts.diffUpdate`, the update diff. Never throws for registry, network, or archive
+* failures; see `errors` and the `tarball-*` findings.
 */
 async function checkPackage(input, opts) {
 	const registry = await checkRegistry(input, opts);
 	if (registry.meta === null || opts.tarball === false || opts.analyzeTarball?.(registry) === false) return {
 		...registry,
-		profile: null
+		profile: null,
+		update: null
 	};
-	const tarball = await checkTarball(registry.meta, opts);
+	const meta = registry.meta;
+	const tarballCheck = checkTarball(meta, opts);
+	const updateCheck = opts.diffUpdate === void 0 ? null : runUpdateDiff(opts.diffUpdate, {
+		name: meta.name,
+		version: meta.version,
+		meta,
+		profile: tarballCheck.then((t) => t.profile, () => null)
+	}, registry.findings);
+	const [tarball, update] = await Promise.all([tarballCheck, updateCheck]);
 	return {
 		...registry,
-		findings: sortFindings([...registry.findings, ...tarball.findings]),
-		errors: [...registry.errors, ...tarball.errors],
-		profile: tarball.profile
+		findings: sortFindings([
+			...registry.findings,
+			...tarball.findings,
+			...update?.findings ?? []
+		]),
+		errors: [
+			...registry.errors,
+			...tarball.errors,
+			...update?.errors ?? []
+		],
+		profile: tarball.profile,
+		update: update?.update ?? null
 	};
 }
 // ../packages/gate/src/policy/actions.ts
@@ -18646,7 +18705,10 @@ function strictest(actions) {
 * findings follow the gate spec's tables. Analyzer signals follow their severity
 * (critical → deny, high → ask, lower → allow), except `env-sensitive-read`: reading a
 * token-like variable alone is common in benign code, and the token-stealer shape
-* (read flowing into a network call) is `env-exfil-pattern`, which denies.
+* (read flowing into a network call) is `env-exfil-pattern`, which denies. Update-diff
+* findings ask when something new appears that the locked version didn't have, except
+* new endpoints and dependencies (common in normal releases; a raw-IP endpoint is
+* `high` and counts toward the two-highs escalation) and the semver mismatch.
 */
 const DEFAULT_ACTIONS = {
 	"non-registry-source": "ask",
@@ -18680,6 +18742,16 @@ const DEFAULT_ACTIONS = {
 	"unparseable-file": "allow",
 	"oversized-file": "allow",
 	"minified-only": "allow",
+	"diff-new-install-script": "ask",
+	"diff-new-capability": "ask",
+	"diff-new-network-in-non-network-pkg": "ask",
+	"diff-new-sensitive-env": "ask",
+	"diff-new-endpoint": "allow",
+	"diff-new-obfuscation": "deny",
+	"diff-new-dependency": "allow",
+	"diff-publisher-changed": "ask",
+	"diff-provenance-dropped": "ask",
+	"diff-semver-mismatch": "allow",
 	denylisted: "deny"
 };
 const BY_SEVERITY = {
@@ -18740,6 +18812,13 @@ function compileList(entries, list) {
 // ../packages/gate/src/policy/engine.ts
 init_src$1();
 const PAIRED = /* @__PURE__ */ new Set(["low-downloads", "package-too-new"]);
+const isHighDiff = (f) => f.id.startsWith("diff-") && f.severity === "high";
+function facts(findings) {
+	return {
+		present: new Set(findings.map((f) => f.id)),
+		highDiffs: findings.filter(isHighDiff).length
+	};
+}
 /**
 * Compiles a config into a {@link Policy}.
 *
@@ -18748,10 +18827,10 @@ const PAIRED = /* @__PURE__ */ new Set(["low-downloads", "package-too-new"]);
 function createPolicy(config = defaultConfig()) {
 	const allow = compileList(config.allow, "allow");
 	const deny = compileList(config.deny, "deny");
-	function decide(finding, present) {
+	function decide(finding, { present, highDiffs }) {
 		let action = defaultAction(finding);
 		let source = "default";
-		if ((PAIRED.has(finding.id) && present.has("low-downloads") && present.has("package-too-new") || finding.id === "install-script" && (present.has("low-downloads") || present.has("package-too-new")) || finding.severity === "critical") && action !== "deny") {
+		if ((PAIRED.has(finding.id) && present.has("low-downloads") && present.has("package-too-new") || finding.id === "install-script" && (present.has("low-downloads") || present.has("package-too-new")) || highDiffs >= 2 && isHighDiff(finding) || finding.severity === "critical") && action !== "deny") {
 			action = "deny";
 			source = "escalation";
 		}
@@ -18789,13 +18868,13 @@ function createPolicy(config = defaultConfig()) {
 			};
 		},
 		decideFindings(findings) {
-			const present = new Set(findings.map((f) => f.id));
-			return findings.map((f) => decide(f, present));
+			const known = facts(findings);
+			return findings.map((f) => decide(f, known));
 		},
 		decidePackage({ name, version, findings, errors }) {
 			const match = listed(name, version);
-			const present = new Set(findings.map((f) => f.id));
-			let decided = findings.map((f) => decide(f, present));
+			const known = facts(findings);
+			let decided = findings.map((f) => decide(f, known));
 			if (match?.list === "allow") decided = decided.map((d) => ({
 				...d,
 				action: "allow",
@@ -18872,6 +18951,15 @@ function integrityFinding(entry, meta, lockfile) {
 	};
 }
 const tarballFindings = (fs) => fs.filter((f) => f.id.startsWith("tarball-"));
+/** The gate tarball-check options carried by {@link VersionDiffOptions}. */
+function tarballOptions(opts) {
+	return {
+		registry: opts.registry,
+		...opts.analysisCache === void 0 ? {} : { analysisCache: opts.analysisCache },
+		...opts.tarLimits === void 0 ? {} : { tarLimits: opts.tarLimits },
+		...opts.analyze === void 0 ? {} : { analyze: opts.analyze }
+	};
+}
 /**
 * Diffs version `from` of a package against version `to`: both tarballs are analyzed
 * (through the gate's tarball check and its analysis cache) and compared with
@@ -18896,12 +18984,7 @@ async function diffVersions(name, from, to, opts) {
 		const metaB = pickVersion(packument, to);
 		for (const [v, m] of [[from, metaA], [to, metaB]]) if (m === null) result.errors.push(new DepwardError("NOT_FOUND", `${name}@${v} is not in the registry`));
 		if (metaA === null || metaB === null) return result;
-		const tarOpts = {
-			registry: opts.registry,
-			...opts.analysisCache === void 0 ? {} : { analysisCache: opts.analysisCache },
-			...opts.tarLimits === void 0 ? {} : { tarLimits: opts.tarLimits },
-			...opts.analyze === void 0 ? {} : { analyze: opts.analyze }
-		};
+		const tarOpts = tarballOptions(opts);
 		const [a, b] = await Promise.all([checkTarball(metaA, tarOpts), checkTarball(metaB, tarOpts)]);
 		result.errors.push(...a.errors, ...b.errors);
 		const findings = tarballFindings(b.findings);
@@ -19306,6 +19389,8 @@ async function diffLockfile(opts) {
 function comparePackages(a, b) {
 	return compareSeverity(a.risk, b.risk) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.to < b.to ? -1 : a.to > b.to ? 1 : 0);
 }
+// ../packages/diff/src/lockfile/update.ts
+init_src$1();
 // ../packages/diff/src/index.ts
 /** The version of `@depward/diff`. Kept in sync with package.json by `scripts/sync-versions.ts`. */
 const VERSION = "0.0.0";

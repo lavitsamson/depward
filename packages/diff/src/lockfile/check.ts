@@ -16,7 +16,7 @@ import {
   type Severity,
   type VersionMeta,
 } from "@depward/core";
-import { checkPackage, checkTarball } from "@depward/gate";
+import { checkPackage, checkTarball, type TarballCheckOptions } from "@depward/gate";
 import { diffPackages } from "../diff.ts";
 import { diffRisk } from "../rules.ts";
 import type { PackageChangeKind, PackageChangeResult, VersionDiffOptions } from "./types.ts";
@@ -54,6 +54,16 @@ export function integrityFinding(entry: LockfileEntry, meta: VersionMeta, lockfi
 
 const tarballFindings = (fs: readonly Finding[]): Finding[] => fs.filter((f) => f.id.startsWith("tarball-"));
 
+/** The gate tarball-check options carried by {@link VersionDiffOptions}. */
+export function tarballOptions(opts: VersionDiffOptions): TarballCheckOptions {
+  return {
+    registry: opts.registry,
+    ...(opts.analysisCache === undefined ? {} : { analysisCache: opts.analysisCache }),
+    ...(opts.tarLimits === undefined ? {} : { tarLimits: opts.tarLimits }),
+    ...(opts.analyze === undefined ? {} : { analyze: opts.analyze }),
+  };
+}
+
 /**
  * Diffs version `from` of a package against version `to`: both tarballs are analyzed
  * (through the gate's tarball check and its analysis cache) and compared with
@@ -77,12 +87,7 @@ export async function diffVersions(
     }
     if (metaA === null || metaB === null) return result;
 
-    const tarOpts = {
-      registry: opts.registry,
-      ...(opts.analysisCache === undefined ? {} : { analysisCache: opts.analysisCache }),
-      ...(opts.tarLimits === undefined ? {} : { tarLimits: opts.tarLimits }),
-      ...(opts.analyze === undefined ? {} : { analyze: opts.analyze }),
-    };
+    const tarOpts = tarballOptions(opts);
     const [a, b] = await Promise.all([checkTarball(metaA, tarOpts), checkTarball(metaB, tarOpts)]);
     result.errors.push(...a.errors, ...b.errors);
     const findings = tarballFindings(b.findings);

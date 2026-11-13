@@ -280,6 +280,9 @@ importers:
       '@depward/core':
         specifier: workspace:*
         version: link:../core
+      '@depward/diff':
+        specifier: workspace:*
+        version: link:../diff
       '@depward/gate':
         specifier: workspace:*
         version: link:../gate

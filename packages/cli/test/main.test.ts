@@ -200,6 +200,37 @@ describe("check: config", () => {
   });
 });
 
+/** Locks depward-fixture-stable at `version` in cwd's package-lock.json. */
+async function lockStable(version: string): Promise<void> {
+  const entry = { version, resolved: `https://registry.npmjs.org/depward-fixture-stable/-/depward-fixture-stable-${version}.tgz`, integrity: `sha512-${"A".repeat(86)}==` };
+  await writeFile(join(cwd, "package-lock.json"), JSON.stringify({ name: "root", lockfileVersion: 3, packages: { "": { name: "root" }, "node_modules/depward-fixture-stable": entry } }));
+}
+const tgz = (r: Awaited<ReturnType<typeof run>>) => r.registry.requests.map((q) => q.url).filter((u) => u.endsWith(".tgz")).map((u) => u.slice(u.lastIndexOf("/") + 1)).toSorted();
+
+describe("check: update path", () => {
+  test("a package locked at another version in cwd is diffed against it", async () => {
+    await lockStable("1.1.0");
+    const r = await run(["check", "depward-fixture-stable@2.0.0", "--format", "json"]);
+    const json = JSON.parse(r.out) as { packages: { update: unknown; errors: { code: string }[] }[] };
+    expect(json.packages[0]?.update).toEqual({ from: "1.1.0", lockfile: "package-lock.json" });
+    // The fixtures record no 1.1.0 tarball, so the diff's download fails and costs onError.
+    expect(tgz(r)).toEqual(["depward-fixture-stable-1.1.0.tgz", "depward-fixture-stable-2.0.0.tgz"]);
+    expect(json.packages[0]?.errors.length).toBeGreaterThan(0);
+    expect(r.code).toBe(EXIT.ask);
+    const text = await run(["check", "depward-fixture-stable@2.0.0"]);
+    expect(text.out).toContain("depward-fixture-stable@2.0.0 (update from 1.1.0)");
+    expect(text.out).toContain("diffed against 1.1.0 locked in package-lock.json");
+  });
+
+  test("the version already locked is checked without a diff", async () => {
+    await lockStable("2.0.0");
+    const r = await run(["check", "depward-fixture-stable@2.0.0", "--format", "json"]);
+    expect((JSON.parse(r.out) as { packages: { update: unknown }[] }).packages[0]?.update).toBeNull();
+    expect(tgz(r)).toEqual(["depward-fixture-stable-2.0.0.tgz"]);
+    expect(r.code).toBe(EXIT.allow);
+  });
+});
+
 describe("check: offline", () => {
   test("--offline with an empty cache never touches the network and asks", async () => {
     const env = { DEPWARD_CACHE_DIR: join(cwd, "cache") };
@@ -234,6 +265,7 @@ describe("rendering untrusted text", () => {
           action: "deny", source: "default",
         }],
         errors: [], errorAction: null, listed: null, suggestion: {}, weeklyDownloads: null, analyzed: false,
+        update: { from: `0.9.0${evil}`, lockfile: `lock${evil}` },
       }],
     };
     const out = renderDecisionTerminal(decision, { verbose: true });

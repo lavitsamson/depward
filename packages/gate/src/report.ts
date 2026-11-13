@@ -33,6 +33,8 @@ export interface PackageDecisionJson {
   suggestion: PackageDecision["suggestion"];
   weeklyDownloads: number | null;
   analyzed: boolean;
+  /** The locked version this request was diffed against (the update path), or `null`. */
+  update: PackageDecision["update"];
   errors: { code: string; message: string }[];
   errorAction: PackageDecision["errorAction"];
   findings: DecidedFindingJson[];
@@ -101,6 +103,7 @@ export function serializeDecision(decision: Decision, tool: { name: string; vers
       suggestion: { ...p.suggestion },
       weeklyDownloads: p.weeklyDownloads,
       analyzed: p.analyzed,
+      update: p.update === null ? null : { from: p.update.from, lockfile: p.update.lockfile },
       errors: p.errors.map((e) => ({ code: e.code, message: e.message })),
       errorAction: p.errorAction,
       findings: decided(p.findings),

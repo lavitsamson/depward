@@ -66,6 +66,13 @@ costs `onError` (default `ask`, never a silent allow), and `DEPWARD_OFFLINE=1` a
 from the cache only. The tarball is skipped when the registry checks already deny, or
 when the package is allow-listed.
 
+The update path: pass `diffUpdate` (for example `createUpdateDiff({ cwd, registry })`
+from [`@depward/diff`](../diff)) and a request for a package that the project's lockfile
+already has at another version is also diffed against the locked version. The diff's
+findings (a new install script, new network use, new obfuscation, …) join the package's
+findings, and `PackageDecision.update` says which version it was compared with. The
+gate itself never imports `@depward/diff`.
+
 ## Data and licensing
 
 The code is MIT licensed. The package also ships two data files in `dist/data/`:

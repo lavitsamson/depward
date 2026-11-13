@@ -23,4 +23,5 @@ export type {
   VersionDiffOptions,
 } from "./lockfile/types.ts";
 export { locateEntry, lockfileLocator } from "./lockfile/locate.ts";
+export { createUpdateDiff, lockedVersionFor, type LockedVersion, type UpdateDiffOptions } from "./lockfile/update.ts";
 export { FAIL_ON_LEVELS, applyPolicy, reachesFailOn, type FailOn } from "./lockfile/policy.ts";

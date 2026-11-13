@@ -16,6 +16,7 @@ import { strictest } from "./policy/actions.ts";
 import { createPolicy, type DecidedFinding, type Policy } from "./policy/engine.ts";
 import type { ListMatch } from "./policy/lists.ts";
 import type { Suggestion } from "./registry/checks.ts";
+import type { UpdateInfo } from "./update.ts";
 
 /** Options for {@link checkSpecs} and {@link checkCommand}. */
 export interface GateOptions extends Omit<PackageCheckOptions, "tarball" | "analyzeTarball"> {
@@ -45,6 +46,11 @@ export interface PackageDecision {
   readonly weeklyDownloads: number | null;
   /** Whether the tarball was downloaded and analyzed. */
   readonly analyzed: boolean;
+  /**
+   * The locked version this request was diffed against (the update path), or `null`
+   * when it wasn't an update or no `diffUpdate` was given.
+   */
+  readonly update: UpdateInfo | null;
 }
 
 /** The gate's answer for a whole command or list of specs. */
@@ -83,7 +89,7 @@ async function decideRequest(req: Request, policy: Policy, opts: GateOptions): P
   // Nothing on the registry to look up, or a deny entry that holds for every version.
   if (req.source !== "registry" || policy.deniedByName(req.name) !== null) {
     const verdict = policy.decidePackage({ name: req.name, version: null, findings: req.findings, errors: [] });
-    return { ...base, version: null, ...verdict, errors: [], suggestion: {}, weeklyDownloads: null, analyzed: false };
+    return { ...base, version: null, ...verdict, errors: [], suggestion: {}, weeklyDownloads: null, analyzed: false, update: null };
   }
 
   const { config: _c, policy: _p, concurrency: _n, ...checkOpts } = opts;
@@ -107,6 +113,7 @@ async function decideRequest(req: Request, policy: Policy, opts: GateOptions): P
     suggestion: result.suggestion,
     weeklyDownloads: result.weeklyDownloads,
     analyzed: result.profile !== null,
+    update: result.update,
   };
 }
 
@@ -115,7 +122,11 @@ const clean = (s: string): string => escapeUnsafe(s, 200);
 function reasonsFor(packages: readonly PackageDecision[], findings: readonly DecidedFinding[]): string[] {
   const lines: { action: PolicyAction; text: string }[] = [];
   for (const p of packages) {
-    const label = clean(p.version === null ? (p.source === "registry" ? `${p.name}@${p.range}` : p.name) : `${p.name}@${p.version}`);
+    const label = clean(
+      p.version === null ? (p.source === "registry" ? `${p.name}@${p.range}` : p.name)
+      : p.update === null ? `${p.name}@${p.version}`
+      : `${p.name}@${p.version} (update from ${p.update.from})`,
+    );
     for (const d of p.findings) {
       if (d.action !== "allow") lines.push({ action: d.action, text: `${d.action} ${label}: ${d.finding.id} — ${clean(d.finding.message)}` });
     }

@@ -7,9 +7,12 @@ import { decisionFindings, strictest, type Decision, type PackageDecision } from
 
 const ACTION_SGR: Record<PolicyAction, string> = { deny: "1;31", ask: "1;33", allow: "32" };
 
-/** `name@version`, or `name@range` before resolution, or the spec for non-registry sources. */
+/**
+ * `name@version` (plus `(update from x)` on the update path), or `name@range` before
+ * resolution, or the spec for non-registry sources.
+ */
 export function packageLabel(p: PackageDecision): string {
-  if (p.version !== null) return `${p.name}@${p.version}`;
+  if (p.version !== null) return p.update === null ? `${p.name}@${p.version}` : `${p.name}@${p.version} (update from ${p.update.from})`;
   return p.source === "registry" ? `${p.name}@${p.range}` : p.range;
 }
 
@@ -41,6 +44,7 @@ export function renderDecisionTerminal(decision: Decision, opts: TerminalDecisio
   const cause = (id: string, message: string): string => `         ${paint("1", escapeUnsafe(id, 80))}: ${escapeUnsafe(message, 300)}`;
   for (const p of decision.packages) {
     lines.push("", `  ${action(p.action)}  ${escapeUnsafe(packageLabel(p), 200)}`);
+    if (p.update !== null) lines.push(`         diffed against ${escapeUnsafe(p.update.from, 100)} locked in ${escapeUnsafe(p.update.lockfile, 100)}`);
     if (p.listed !== null) lines.push(`         on the ${p.listed.list} list (${escapeUnsafe(JSON.stringify(p.listed.entry), 200)})`);
     for (const d of p.findings) {
       if (d.action === "allow") hidden++;

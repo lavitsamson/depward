@@ -12,6 +12,7 @@ export {
   type SpecSource,
 } from "./command/spec.ts";
 export { checkPackage, type PackageCheckOptions, type PackageCheckResult } from "./check.ts";
+export { runUpdateDiff, type UpdateDiff, type UpdateDiffResult, type UpdateInfo, type UpdateOutcome, type UpdateRequest } from "./update.ts";
 export { checkCommand, checkSpecs, type Decision, type GateOptions, type PackageDecision } from "./gate.ts";
 export { DEFAULT_ACTIONS, defaultAction, stricter, strictest } from "./policy/actions.ts";
 export {

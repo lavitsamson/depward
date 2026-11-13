@@ -442,9 +442,16 @@ same package. `version` is B. Each finding describes something B does that A did
 the same behavior is not reported again on later updates. Two or more `high` findings in
 one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
+The gate gets these findings too, through the update path (`docs/specs/gate.md` § Update
+path): when an install request names a package that the project's lockfile already has
+at another version. The default actions below apply there. Two or more `high` `diff-*`
+findings in one package escalate to `deny`, which matches the diff's `critical` risk.
+`diff-publisher-changed` and `diff-provenance-dropped` are dropped in the gate when the
+registry checks already report `publisher-changed` or `provenance-dropped`.
+
 ### diff-new-install-script
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B has a `preinstall`, `install`, or `postinstall` script that A didn't
   have, or the command changed. One finding covers every such script. The evidence
@@ -458,6 +465,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 ### diff-new-capability
 
 - **Default severity:** medium; high for `child_process`, `dynamic_code`, and `native_addon`
+  (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B uses a capability (see the analyzer spec) that A never used. There is one
   finding per capability, with B's uses as evidence. A new `net` is reported as
@@ -467,7 +475,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-new-network-in-non-network-pkg
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** A had no `net` capability and B does. A package that suddenly talks to the
   network is the most common shape of a malicious update (a stealer or a dropper).
@@ -476,7 +484,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-new-sensitive-env
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B reads environment variables with credential-like names (the same rule
   as `env-sensitive-read`) that A didn't read, or B enumerates the whole of
@@ -488,6 +496,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 ### diff-new-endpoint
 
 - **Default severity:** medium; high when one of the new endpoints is a raw IP address
+  (default action: allow)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B contains hardcoded URLs or hosts that A didn't. One finding lists all of
   them, raw IPs first.
@@ -496,7 +505,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-new-obfuscation
 
-- **Default severity:** critical
+- **Default severity:** critical (default action: deny)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B has an `obfuscation` or `encoded-payload` signal and A had none.
   Signals are compared by id, so obfuscation that A already had (for example a
@@ -507,7 +516,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 ### diff-new-dependency
 
 - **Default severity:** low (lockfile mode raises it to high when the new dependency is
-  itself young)
+  itself young) (default action: allow)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B declares a dependency (`dependencies`, `optionalDependencies`, or
   `peerDependencies`) that A didn't. There is one finding per dependency. Attackers
@@ -517,7 +526,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-publisher-changed
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B was published by an account that did not publish recent versions. With
   the packument, the rule is the same as `publisher-changed`, including its exemptions
@@ -528,7 +537,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-provenance-dropped
 
-- **Default severity:** high
+- **Default severity:** high (default action: ask)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** A had a provenance attestation and B has none. Unlike
   `provenance-dropped`, this compares the two versions directly, because A → B is
@@ -538,7 +547,7 @@ one package raise the package's risk to `critical`. Spec: `docs/specs/diff.md`.
 
 ### diff-semver-mismatch
 
-- **Default severity:** medium
+- **Default severity:** medium (default action: allow)
 - **Emitted by:** `@depward/diff` (`diffPackages`)
 - **Meaning:** B is a patch release of A (same major and minor version, including
   `0.0.x`) but adds a capability or an install script. Patch releases are supposed
