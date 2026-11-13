@@ -13,9 +13,28 @@ import { renderDiffMarkdown } from "./diff-markdown.ts";
 import { renderDiffSarif, renderDiffTerminal } from "./diff-render.ts";
 import { UsageError, type Runtime } from "./runtime.ts";
 
-const TITLE = "depward caps check";
+/** Report options shared by `caps check` and `caps compare`. */
+export const REPORT_OPTIONS = { format: { type: "string" }, json: { type: "boolean" }, "fail-on": { type: "string" }, verbose: { type: "boolean" } } as const;
 
-function render(report: CapsCheckReport, format: ReportFormat, failOn: FailOn, verbose: boolean, rt: Runtime): string {
+/** Validates `--format`, `--json` and `--fail-on`. */
+export function parseReportArgs(values: { format?: string | undefined; json?: boolean | undefined; "fail-on"?: string | undefined }): { format: ReportFormat; failOn: FailOn } {
+  let format: ReportFormat = "terminal";
+  if (values.format !== undefined) {
+    if (!(REPORT_FORMATS as readonly string[]).includes(values.format)) throw new UsageError(`--format must be one of ${REPORT_FORMATS.join(", ")}`);
+    format = values.format as ReportFormat;
+  }
+  if (values.json) {
+    if (values.format !== undefined && values.format !== "json") throw new UsageError(`--json conflicts with --format ${values.format}`);
+    format = "json";
+  }
+  const failOn = values["fail-on"] ?? "critical";
+  if (!(FAIL_ON_LEVELS as readonly string[]).includes(failOn)) throw new UsageError(`--fail-on must be one of ${FAIL_ON_LEVELS.join(", ")}`);
+  return { format, failOn: failOn as FailOn };
+}
+
+/** Renders a caps report (check or compare) in `format`. */
+export function renderCapsReport(report: CapsCheckReport, format: ReportFormat, failOn: FailOn, verbose: boolean, rt: Runtime, title = "depward caps check"): string {
+  const TITLE = title;
   const tool = { name: "depward", version: rt.version };
   switch (format) {
     case "json": {
@@ -28,7 +47,7 @@ function render(report: CapsCheckReport, format: ReportFormat, failOn: FailOn, v
       return renderDiffSarif(report, tool);
     case "terminal": {
       const text = renderDiffTerminal(report, { color: colorEnabled(rt.env, rt.isTTY), verbose, title: TITLE });
-      const summary = `${plural(report.counts.checked, "package")} checked; ${plural(report.counts.unapproved, "package")} with unapproved capabilities.`;
+      const summary = `${plural(report.counts.checked, "package")} ${title.endsWith("compare") ? "observed" : "checked"}; ${plural(report.counts.unapproved, "package")} with unapproved capabilities.`;
       const next = report.counts.unapproved > 0 ? "\nReview the uses, then run: depward caps approve <name>[@version] [--cap <cap>] [--reason <text>]" : "";
       return `${text}\n${summary}${next}\n`;
     }
@@ -41,20 +60,10 @@ export async function runCapsCheck(argv: string[], rt: Runtime): Promise<number>
     args: argv,
     allowPositionals: true,
     strict: true,
-    options: { ...COMMON_OPTIONS, format: { type: "string" }, json: { type: "boolean" }, "fail-on": { type: "string" }, verbose: { type: "boolean" } },
+    options: { ...COMMON_OPTIONS, ...REPORT_OPTIONS },
   });
   if (positionals.length > 0) throw new UsageError("caps check takes no package arguments");
-  let format: ReportFormat = "terminal";
-  if (values.format !== undefined) {
-    if (!(REPORT_FORMATS as readonly string[]).includes(values.format)) throw new UsageError(`--format must be one of ${REPORT_FORMATS.join(", ")}`);
-    format = values.format as ReportFormat;
-  }
-  if (values.json) {
-    if (values.format !== undefined && values.format !== "json") throw new UsageError(`--json conflicts with --format ${values.format}`);
-    format = "json";
-  }
-  const failOn = values["fail-on"] ?? "critical";
-  if (!(FAIL_ON_LEVELS as readonly string[]).includes(failOn)) throw new UsageError(`--fail-on must be one of ${FAIL_ON_LEVELS.join(", ")}`);
+  const { format, failOn } = parseReportArgs(values);
   const concurrency = parseConcurrency(values.concurrency);
   const capsFile = parseCapsFile(values["caps-file"]);
 
@@ -71,9 +80,9 @@ export async function runCapsCheck(argv: string[], rt: Runtime): Promise<number>
     ...(overrides.tarLimits === undefined ? {} : { tarLimits: overrides.tarLimits }),
     ...(overrides.analyze === undefined ? {} : { analyze: overrides.analyze }),
   });
-  rt.stdout(render(report, format, failOn as FailOn, values.verbose ?? false, rt));
-  const code = capsCheckExitCode(report, failOn as FailOn);
-  if (code === 1 && !reachesFailOn(report.packages, failOn as FailOn)) {
+  rt.stdout(renderCapsReport(report, format, failOn, values.verbose ?? false, rt));
+  const code = capsCheckExitCode(report, failOn);
+  if (code === 1 && !reachesFailOn(report.packages, failOn)) {
     rt.stderr(retryHint(report.packages.flatMap((p) => p.errors.map((e) => e.code))));
   }
   return code;

@@ -8,6 +8,7 @@ import { CAPS_LOCKFILE_NAME, DEFAULT_SCAN_CONCURRENCY, scanCapabilities, seriali
 import { escapeUnsafe } from "@depward/core";
 import { runCapsApprove } from "./caps-approve.ts";
 import { runCapsCheck } from "./caps-check.ts";
+import { runCapsCompare } from "./caps-compare.ts";
 import { COMMON_OPTIONS, parseCapsFile, parseConcurrency, plural, readCapsFile, retryHint, writeAtomic } from "./caps-shared.ts";
 import { openContext } from "./context.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
@@ -15,6 +16,7 @@ import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 export const CAPS_USAGE: string = `Usage: depward caps scan [options]
        depward caps check [options]
        depward caps approve <name>[@version]... [options]
+       depward caps compare [options]
 
 scan     Writes ${CAPS_LOCKFILE_NAME}: the capabilities (fs, net, child_process,
          env, ...) that static analysis finds in every registry package of the
@@ -27,6 +29,9 @@ check    Fails (exit 20) when a locked version uses a capability that its entry 
          the package's highest approved version is the reference. For CI.
 approve  Approves the capabilities of the locked versions of a package (or of one
          version) and records who, when, and why.
+compare  Compares what "node --import @depward/caps/register" observed at runtime
+         (.depward/caps-observed.json) with ${CAPS_LOCKFILE_NAME}. Same report and exit
+         codes as check. Runtime observation is defense in depth, not a sandbox.
 
 Package code is never run.
 
@@ -42,12 +47,15 @@ scan:
       --output <path>     Where to write (default: --caps-file); "-" for stdout
       --json              Print the scan summary as JSON
 
-check:
+check, compare:
       --format <fmt>      terminal (default), json, markdown, sarif
       --json              Same as --format json
       --fail-on <level>   Also exit 20 when a package's risk reaches this level:
                           critical (default), high, medium, low, info, or none
       --verbose           Also show findings the config allows
+
+compare:
+      --observed <path>   The observed file (default .depward/caps-observed.json)
 
 approve:
       --cap <cap>         Approve only this capability (repeatable); others stay
@@ -56,8 +64,8 @@ approve:
       --by <name>         Who approves (default: git config user.name, else "manual")
 
 Exit codes: scan, approve: 0 written, 1 error (nothing written).
-check: 0 pass, 20 unapproved capability or --fail-on reached, 1 a package could not
-be checked.
+check, compare: 0 pass, 20 unapproved capability or --fail-on reached, 1 a package
+could not be checked.
 `;
 
 /** The caps subcommands. */
@@ -65,6 +73,7 @@ const SUBCOMMANDS: Record<string, (argv: string[], rt: Runtime) => Promise<numbe
   scan: runCapsScan,
   check: runCapsCheck,
   approve: runCapsApprove,
+  compare: runCapsCompare,
 };
 
 /** Runs `depward caps` and returns the exit code. */
@@ -75,7 +84,7 @@ export async function runCaps(argv: string[], rt: Runtime): Promise<number> {
     return EXIT.allow;
   }
   const [sub, ...rest] = argv;
-  if (sub === undefined) throw new UsageError("give a subcommand: scan, check, or approve");
+  if (sub === undefined) throw new UsageError("give a subcommand: scan, check, approve, or compare");
   const run = Object.hasOwn(SUBCOMMANDS, sub) ? SUBCOMMANDS[sub] : undefined;
   if (run === undefined) throw new UsageError(`unknown caps subcommand ${JSON.stringify(escapeUnsafe(sub, 50))}`);
   return run(rest, rt);

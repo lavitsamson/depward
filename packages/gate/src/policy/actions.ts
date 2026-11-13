@@ -76,6 +76,7 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   // Capability lockfile (emitted by @depward/caps; the gate never emits it, but config
   // overrides of it go through this table)
   "caps-unapproved": "ask",
+  "caps-observed-unapproved": "ask",
   "diff-provenance-dropped": "ask",
   "diff-semver-mismatch": "allow",
   // Policy

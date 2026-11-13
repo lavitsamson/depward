@@ -23,6 +23,11 @@
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
     },
+    "./register": {
+      "@depward/source": "./src/runtime/register.ts",
+      "types": "./dist/register.d.mts",
+      "default": "./dist/register.mjs"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

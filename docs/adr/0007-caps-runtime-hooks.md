@@ -1,6 +1,6 @@
 # 0007 — caps runtime: per-package builtins through `module.registerHooks`
 
-- Status: proposed
+- Status: accepted (2026-11-13; the `process.env` default was approved the same day)
 - Date: 2026-11-13
 
 ## Context
@@ -189,5 +189,25 @@ are.
   real apps (DoD: the Express + Prisma-like fixture).
 - `registerHooks` is a release candidate (1.2), not stable. `getCallSites` is 1.1. An API
   change in Node can break the runtime layer; CI covers Node 22 and 24.
-- Spec edit needed in `docs/specs/caps.md` § Runtime layer: `process.env` stack
+- Spec edit (done, `docs/specs/caps.md` § Runtime details): `process.env` stack
   attribution applies only to credential-like keys and enumeration by default.
+
+## Implementation notes (M4.3, 2026-11-13)
+
+`packages/caps/src/runtime/` implements the decision above. The follow-ups listed under
+Decision are done: captured intrinsics, live ESM bindings through
+`syncBuiltinESMExports`, unwrapping in `set`/`defineProperty`, `getCallSites` with
+`sourceMap: false`, and `WebSocket`/`EventSource`. Lessons from building it:
+
+- The "self" root is the directory of the register file (`src/runtime/` or `dist/`),
+  not the package root. Otherwise an app inside the package (the test fixtures) is never
+  attributed. The same bug showed up in the spike.
+- Own function-valued properties of wrapped functions are wrapped too
+  (`fs.realpathSync.native`). Properties Node defines as non-configurable and
+  non-writable (`fs.exists[util.promisify.custom]`) can't be: a Proxy must return them
+  unchanged, so `util.promisify(fs.exists)` calls go uncounted.
+- The generated modules reach the runtime through a frozen global registry. A package
+  can call it directly and get another package's wrapper. That is one more bypass,
+  consistent with "not a sandbox".
+- Measured on the fixture server: 1.9% request overhead, and +16 ms startup from `dist/`
+  (`docs/benchmarks.md` § Phase 4).

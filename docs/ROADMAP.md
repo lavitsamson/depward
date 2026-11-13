@@ -164,8 +164,9 @@ updates: 48 info, 1 low, 1 high, reviewed and justified (`pnpm bench:diff`; revi
 - [x] M4.2 `depward caps check` in CI fails on new capabilities that haven't been
       approved. `depward caps approve <pkg>` approves them (rules: `docs/specs/caps.md`
       § Check details, § Approve details)
-- [ ] M4.3 Runtime `observe` mode: `node --import @depward/caps/register`, which logs
+- [x] M4.3 Runtime `observe` mode: `node --import @depward/caps/register`, which logs
       capability use attributed to each package
+      (plus `depward caps compare`; overhead in `docs/benchmarks.md` § Phase 4)
 - [ ] M4.4 Runtime `enforce` mode, with documented limitations (this is not a sandbox)
 
 **Definition of done:** the caps lockfile round-trips. Runtime attribution is correct on

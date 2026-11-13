@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createGateData, preloadAnalyzer } from "@depward/gate";
@@ -185,5 +185,44 @@ describe("caps approve", () => {
     const r = await run(["caps", "approve"], registry());
     expect(r.code).toBe(EXIT.error);
     expect(r.err).toContain("give at least one package");
+  });
+});
+
+describe("caps compare", () => {
+  const OBSERVED = JSON.stringify({
+    version: 1,
+    packages: {
+      "fx-net@1.0.0": { net: { count: 3, members: ["globalThis.fetch"] } },
+      "fx-net@2.0.0": { child_process: { count: 1, members: ["child_process.execSync"] }, net: { count: 1, members: ["globalThis.fetch"] } },
+    },
+  });
+
+  test("observed capabilities without approval fail with exit 20", async () => {
+    await writeFile(join(cwd, "capabilities.lock.json"), BASELINE);
+    await mkdir(join(cwd, ".depward"));
+    await writeFile(join(cwd, ".depward", "caps-observed.json"), OBSERVED);
+    const r = await run(["caps", "compare"], registry());
+    expect(r.code).toBe(EXIT.deny);
+    expect(r.out).toContain("depward caps compare: high");
+    expect(r.out).toContain("caps-observed-unapproved [high]: used child_process at runtime, which is not approved: the approved entry for 1.0.0 does not list it");
+    expect(r.out).toContain("2 packages observed; 1 package with unapproved capabilities.");
+  });
+
+  test("--observed picks the file; approved use passes", async () => {
+    await writeFile(join(cwd, "capabilities.lock.json"), BASELINE);
+    await writeFile(join(cwd, "obs.json"), JSON.stringify({ version: 1, packages: { "fx-net@1.0.0": { net: { count: 1, members: ["globalThis.fetch"] } } } }));
+    const r = await run(["caps", "compare", "--observed", "obs.json", "--json"], registry());
+    expect(r.code).toBe(EXIT.allow);
+    expect(JSON.parse(r.out)).toMatchObject({ failed: false, counts: { checked: 1, unapproved: 0 } });
+  });
+
+  test("a missing or malformed observed file is an error", async () => {
+    await writeFile(join(cwd, "capabilities.lock.json"), BASELINE);
+    const missing = await run(["caps", "compare"], registry());
+    expect(missing.code).toBe(EXIT.error);
+    expect(missing.err).toContain('run the app with "node --import @depward/caps/register" first');
+    await writeFile(join(cwd, "obs.json"), "{}");
+    const bad = await run(["caps", "compare", "--observed", "obs.json"], registry());
+    expect(bad.err).toContain("is not a valid observed-capabilities file");
   });
 });

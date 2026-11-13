@@ -1,7 +1,8 @@
 /**
  * Per-package least privilege for Node.js: a capability lockfile built from static
- * analysis (`capabilities.lock.json`), checked in CI and approved per package. The runtime layer (`@depward/caps/register`)
- * arrives in M4.3. Spec: docs/specs/caps.md.
+ * analysis (`capabilities.lock.json`), checked in CI and approved per package, plus
+ * `compareObserved` for what the runtime layer (`@depward/caps/register`) observed.
+ * Spec: docs/specs/caps.md.
  *
  * @module
  */
@@ -27,9 +28,24 @@ export {
   capsCheckExitCode,
   checkCapabilities,
   referenceIndex,
+  comparePackages,
+  maxSeverity,
   unapprovedFindings,
+  unapprovedReason,
+  unapprovedSeverity,
   type CapsCheckReport,
   type CapsReference,
   type CheckOptions,
 } from "./check.ts";
 export { approveCapabilities, parseTarget, type ApproveOptions, type ApproveResult, type ApproveTarget, type ApprovedEntry } from "./approve.ts";
+export { compareObserved, observedFindings, type CompareOptions } from "./compare.ts";
+export {
+  MAX_MEMBERS,
+  OBSERVED_VERSION,
+  mergeObserved,
+  normalizeObserved,
+  parseObserved,
+  type ObservedFile,
+  type ObservedUse,
+} from "./runtime/store.ts";
+export { DEFAULT_OBSERVED_PATH } from "./runtime/paths.ts";
