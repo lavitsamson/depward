@@ -2,8 +2,8 @@
 
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
-> **Status:** pre-release (Phase 3). `depward check`, `depward diff`, and the Claude Code
-> hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
+> **Status:** pre-release (Phase 4). `depward check`, `depward diff`, `depward caps scan`,
+> and the Claude Code hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
 > [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -85,6 +85,25 @@ keeps a reviewed finding visible but out of the risk, the `allow` list does that
 whole package, and a version on the `deny` list is always `critical`. Exit codes: `0`
 below `--fail-on`, `20` when a package reaches it, `1` error, including a lookup that
 failed (the report is still printed).
+
+## `depward caps scan`
+
+```
+depward caps scan [options]
+
+      --output <path>     Where to write (default capabilities.lock.json); "-" for stdout
+      --json              Print the scan summary as JSON
+      --concurrency <n>   Packages analyzed at once (default 8)
+      --offline, --config   As for check
+```
+
+Writes `capabilities.lock.json`: for every registry package in the lockfiles of the
+current directory, the capabilities static analysis finds (`fs`, `net`,
+`child_process`, `env`, ...). Entries with capabilities are approved as `static`.
+Run it again after you review a change: approvals of unchanged entries are kept, and
+entries that are no longer locked are dropped. If any package can't be analyzed, nothing
+is written and the exit code is `1`. Commit the file; `depward caps check` (coming in
+M4.2) fails CI when an update brings a capability nobody approved.
 
 ## Claude Code hook
 

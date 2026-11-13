@@ -233,8 +233,26 @@ importers:
         specifier: 8.3.5
         version: 8.3.5
 
+  packages/caps:
+    dependencies:
+      '@depward/analyzer':
+        specifier: workspace:*
+        version: link:../analyzer
+      '@depward/core':
+        specifier: workspace:*
+        version: link:../core
+      '@depward/diff':
+        specifier: workspace:*
+        version: link:../diff
+      '@depward/gate':
+        specifier: workspace:*
+        version: link:../gate
+
   packages/cli:
     dependencies:
+      '@depward/caps':
+        specifier: workspace:*
+        version: link:../caps
       '@depward/core':
         specifier: workspace:*
         version: link:../core
