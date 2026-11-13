@@ -79,7 +79,7 @@ export {
   type LockfileFormat,
   type ParseLockfileOptions,
 } from "./lockfile/types.ts";
-export { filesAtRef, mergeBase, readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";
+export { filesAtRef, gitUserName, mergeBase, readFileAtRef, type ReadFileAtRefOptions } from "./git.ts";
 export {
   REPORT_FORMATS,
   JSON_REPORT_VERSION,

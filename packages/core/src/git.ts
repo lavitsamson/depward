@@ -123,3 +123,17 @@ export async function filesAtRef(ref: string, paths: readonly string[], cwd: str
   const present = new Set(listed.stdout.split("\0").filter((s) => s !== ""));
   return paths.filter((p) => present.has(p.replaceAll("\\", "/").replace(/^\.\//, "")));
 }
+
+/**
+ * The `user.name` from git config as seen from `cwd`, or `null` when git is missing,
+ * the value is unset, or anything fails. Never throws.
+ */
+export async function gitUserName(cwd: string, opts: Pick<ReadFileAtRefOptions, "timeoutMs"> = {}): Promise<string | null> {
+  try {
+    const r = await git(["config", "--get", "user.name"], cwd, { maxBytes: 64 * 1024, timeoutMs: opts.timeoutMs ?? 5000 });
+    const name = r.stdout.trim();
+    return r.ok && name !== "" ? name : null;
+  } catch {
+    return null;
+  }
+}

@@ -18,6 +18,8 @@ export interface DiffMarkdownOptions {
   maxLength?: number;
   /** Evidence items shown per finding. Default 5. */
   maxEvidence?: number;
+  /** Replaces "depward" in the heading (for `depward caps check`). Written as is: never pass untrusted text. */
+  title?: string;
   /**
    * A first line identifying the comment, such as `<!-- depward-diff -->`, so a sticky
    * comment can be found and updated. Written as is: never pass untrusted text.
@@ -125,7 +127,7 @@ export function renderDiffMarkdown(view: DiffView, opts: DiffMarkdownOptions = {
   const shown = view.packages.filter(flagged);
   const quiet = view.packages.filter((p) => !flagged(p));
   const review = view.packages.filter((p) => compareSeverity(p.risk, "medium") <= 0 || p.errors.length > 0);
-  const heading = `## depward: ${plural(n, "dependency change")}${review.length > 0 ? `, ${review.length} need${review.length === 1 ? "s" : ""} review` : ""}`;
+  const heading = `## ${opts.title ?? "depward"}: ${plural(n, "dependency change")}${review.length > 0 ? `, ${review.length} need${review.length === 1 ? "s" : ""} review` : ""}`;
 
   const head: string[] = opts.marker === undefined ? [heading, ""] : [opts.marker, heading, ""];
   if (view.base !== null) {

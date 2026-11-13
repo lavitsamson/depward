@@ -72,6 +72,55 @@ prototype tampering, or native addons. Never market it as isolation.
 depward caps scan [--output capabilities.lock.json | --output -] [--json] [--offline]
 ```
 
+### Check details (M4.2 clarifications)
+
+- **Input:** the same lockfiles as `scan`, plus the capability lockfile (`--caps-file`,
+  default `capabilities.lock.json`). A missing capability lockfile is an error: run
+  `scan` first.
+- **Reference entry:** the exact `name@version` entry if there is one; otherwise the
+  entry of the same name with the highest version (the "most recent approved entry").
+  A name with no entry at all has no approvals.
+- **`caps-unapproved`:** one finding per capability that the locked version uses and the
+  reference entry does not list. Severity is medium, or high for `child_process`,
+  `dynamic_code` and `native_addon` (the same split as `diff-new-capability`). The
+  evidence is the version's uses, up to 10.
+- **Also reported, with diff's finding IDs:**
+  - `non-registry-source` for `git`, `tarball` and `other` entries (not `workspace`,
+    `link`, `file`, `bundled`).
+  - `lockfile-integrity-mismatch`, `tarball-integrity-mismatch`, and `tarball-unsafe`.
+- **Failures:** network failures and missing versions are errors, not findings.
+- **Report:** the diff report (terminal, JSON, Markdown, SARIF). Only packages with
+  findings or errors appear.
+  - `kind` is `updated` (`from` = the reference entry's version, which equals `to` for
+    an exact entry) or `added` (no entry for the name).
+  - The config's `policy`, `allow` and `deny` apply as in `diff`.
+  - Entries of the capability lockfile that are no longer locked are ignored (`scan`
+    prunes them).
+- **Exit codes:**
+  - `20` when a `caps-unapproved` finding counts (is not allowed by the config), or when
+    a package's risk reaches `--fail-on` (default `critical`).
+  - Otherwise `1` when a package could not be checked.
+  - Otherwise `0`.
+
+### Approve details (M4.2 clarifications)
+
+```bash
+depward caps approve <name>[@version]... [--cap <cap>]... [--reason <text>] [--by <who>]
+```
+
+- **Targets:** with a version, that version, which must be locked. Without one, every
+  locked registry version of the name. Nothing locked is an error.
+- **What gets approved:** each target is analyzed.
+  - Without `--cap`, all of its capabilities are approved.
+  - With `--cap`, the approved set is the reference entry's capabilities plus the named
+    ones, limited to what the version uses. A named capability that the version doesn't
+    use is an error, which catches typos.
+- **Recorded fields:**
+  - `approvedBy` is `--by`, else `git config user.name`, else `manual`.
+  - `approvedAt` is today's date (UTC).
+  - `reason` is `--reason`.
+- The capability lockfile is created if it doesn't exist. Other entries are not touched.
+
 ## Runtime layer — spike first (M4.0)
 
 Hypothesis: with `module.registerHooks()` (synchronous, applies to both `require` and

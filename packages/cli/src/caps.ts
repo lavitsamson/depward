@@ -1,101 +1,91 @@
 // `depward caps`: the capability lockfile. Spec: docs/specs/caps.md § Static layer.
 // Argument parsing uses node:util parseArgs (https://nodejs.org/api/util.html#utilparseargsconfig).
+// `scan` lives here with the shared helpers; `check` and `approve` have their own files.
 
-import { readFile, rename, writeFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import {
-  CAPS_LOCKFILE_NAME,
-  DEFAULT_SCAN_CONCURRENCY,
-  parseCapsLockfile,
-  scanCapabilities,
-  serializeCapsLockfile,
-  type CapsLockfile,
-  type ScanResult,
-} from "@depward/caps";
+import { CAPS_LOCKFILE_NAME, DEFAULT_SCAN_CONCURRENCY, scanCapabilities, serializeCapsLockfile, type ScanResult } from "@depward/caps";
 import { escapeUnsafe } from "@depward/core";
+import { runCapsApprove } from "./caps-approve.ts";
+import { runCapsCheck } from "./caps-check.ts";
+import { COMMON_OPTIONS, parseCapsFile, parseConcurrency, plural, readCapsFile, retryHint, writeAtomic } from "./caps-shared.ts";
 import { openContext } from "./context.ts";
 import { EXIT, UsageError, type Runtime } from "./runtime.ts";
 
 export const CAPS_USAGE: string = `Usage: depward caps scan [options]
+       depward caps check [options]
+       depward caps approve <name>[@version]... [options]
 
-Writes ${CAPS_LOCKFILE_NAME}: the capabilities (fs, net, child_process, env, ...)
-that static analysis finds in every registry package of the lockfiles in the current
-directory. Package code is never run. Entries with capabilities are approved as
-"static"; a re-scan keeps the approvals of entries whose capabilities are unchanged
-and drops entries that are no longer locked. Nothing is written if any package can't
-be analyzed.
+scan     Writes ${CAPS_LOCKFILE_NAME}: the capabilities (fs, net, child_process,
+         env, ...) that static analysis finds in every registry package of the
+         lockfiles in the current directory. Entries with capabilities are approved
+         as "static". A re-scan keeps the approvals of unchanged entries and drops
+         entries that are no longer locked. Nothing is written if a package can't be
+         analyzed.
+check    Fails (exit 20) when a locked version uses a capability that its entry in
+         ${CAPS_LOCKFILE_NAME} doesn't list. Without an exact name@version entry,
+         the package's highest approved version is the reference. For CI.
+approve  Approves the capabilities of the locked versions of a package (or of one
+         version) and records who, when, and why.
 
-Options:
-      --output <path>     Where to write (default ${CAPS_LOCKFILE_NAME}); "-" for stdout
-      --json              Print the scan summary as JSON
+Package code is never run.
+
+Options (all):
+      --caps-file <path>  The capability lockfile (default ${CAPS_LOCKFILE_NAME})
       --concurrency <n>   Packages analyzed at once (default ${DEFAULT_SCAN_CONCURRENCY})
-      --config <path>     Config file (for the registry URL)
+      --config <path>     Config file (default: depward.config.json, or the
+                          "depward" key of package.json)
       --offline           Use only cached registry data (also: DEPWARD_OFFLINE=1)
   -h, --help              Show this help
 
-Exit codes: 0 written, 1 error (nothing written).
+scan:
+      --output <path>     Where to write (default: --caps-file); "-" for stdout
+      --json              Print the scan summary as JSON
+
+check:
+      --format <fmt>      terminal (default), json, markdown, sarif
+      --json              Same as --format json
+      --fail-on <level>   Also exit 20 when a package's risk reaches this level:
+                          critical (default), high, medium, low, info, or none
+      --verbose           Also show findings the config allows
+
+approve:
+      --cap <cap>         Approve only this capability (repeatable); others stay
+                          unapproved
+      --reason <text>     Why the capabilities are acceptable
+      --by <name>         Who approves (default: git config user.name, else "manual")
+
+Exit codes: scan, approve: 0 written, 1 error (nothing written).
+check: 0 pass, 20 unapproved capability or --fail-on reached, 1 a package could not
+be checked.
 `;
 
-interface ScanArgs {
-  readonly output: string;
-  readonly json: boolean;
-  readonly concurrency: number;
-  readonly config: string | undefined;
-  readonly offline: boolean;
-  readonly help: boolean;
+/** The caps subcommands. */
+const SUBCOMMANDS: Record<string, (argv: string[], rt: Runtime) => Promise<number>> = {
+  scan: runCapsScan,
+  check: runCapsCheck,
+  approve: runCapsApprove,
+};
+
+/** Runs `depward caps` and returns the exit code. */
+export async function runCaps(argv: string[], rt: Runtime): Promise<number> {
+  // --help anywhere prints the one caps usage (subcommands don't have their own).
+  if (argv.includes("--help") || argv.includes("-h")) {
+    rt.stdout(CAPS_USAGE);
+    return EXIT.allow;
+  }
+  const [sub, ...rest] = argv;
+  if (sub === undefined) throw new UsageError("give a subcommand: scan, check, or approve");
+  const run = Object.hasOwn(SUBCOMMANDS, sub) ? SUBCOMMANDS[sub] : undefined;
+  if (run === undefined) throw new UsageError(`unknown caps subcommand ${JSON.stringify(escapeUnsafe(sub, 50))}`);
+  return run(rest, rt);
 }
 
-function parse(argv: string[]): ScanArgs {
-  const { values, positionals } = parseArgs({
-    args: argv,
-    allowPositionals: true,
-    strict: true,
-    options: {
-      output: { type: "string" },
-      json: { type: "boolean" },
-      concurrency: { type: "string" },
-      config: { type: "string" },
-      offline: { type: "boolean" },
-      help: { type: "boolean", short: "h" },
-    },
-  });
-  const help = values.help ?? false;
-  if (!help) {
-    const [sub, ...extra] = positionals;
-    if (sub === undefined) throw new UsageError("give a subcommand: scan");
-    if (sub !== "scan") throw new UsageError(`unknown caps subcommand ${JSON.stringify(escapeUnsafe(sub, 50))}`);
-    if (extra.length > 0) throw new UsageError("caps scan takes no package arguments");
-  }
-  let concurrency = DEFAULT_SCAN_CONCURRENCY;
-  if (values.concurrency !== undefined) {
-    concurrency = Number(values.concurrency);
-    if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 64) throw new UsageError("--concurrency must be an integer from 1 to 64");
-  }
-  const output = values.output ?? CAPS_LOCKFILE_NAME;
-  if (output === "") throw new UsageError("--output needs a path");
-  if (output === "-" && values.json) throw new UsageError('--json conflicts with --output -');
-  return { output, json: values.json ?? false, concurrency, config: values.config, offline: values.offline ?? false, help };
-}
-
-/** The current capability lockfile at `path`, or `null` when there is none. */
-async function readExisting(path: string): Promise<CapsLockfile | null> {
-  let text: string;
-  try {
-    text = await readFile(path, "utf8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
-  }
-  return parseCapsLockfile(text, basename(path));
-}
-
-const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
+// ---------------------------------------------------------------------------------------
+// scan
 
 function summaryText(r: ScanResult, written: string): string {
-  const lines = [
-    `Scanned ${plural(r.counts.scanned, "package")} from ${r.lockfiles.join(", ")}: ${r.counts.withCapabilities} with capabilities.`,
-  ];
+  const lines = [`Scanned ${plural(r.counts.scanned, "package")} from ${r.lockfiles.join(", ")}: ${r.counts.withCapabilities} with capabilities.`];
   if (r.counts.kept > 0 || r.counts.dropped > 0) lines.push(`Kept ${plural(r.counts.kept, "approval")}; dropped ${plural(r.counts.dropped, "entry", "entries")} no longer locked.`);
   if (r.skipped.length > 0) {
     const sources = [...new Set(r.skipped.map((s) => s.source))].toSorted().join(", ");
@@ -105,29 +95,27 @@ function summaryText(r: ScanResult, written: string): string {
   return `${lines.join("\n")}\n`;
 }
 
-/** Writes through a temporary file, so an interrupted write never leaves half a lockfile. */
-async function writeAtomic(path: string, text: string): Promise<void> {
-  const tmp = `${path}.${process.pid}.tmp`;
-  await writeFile(tmp, text);
-  await rename(tmp, path);
-}
+async function runCapsScan(argv: string[], rt: Runtime): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    strict: true,
+    options: { ...COMMON_OPTIONS, output: { type: "string" }, json: { type: "boolean" } },
+  });
+  if (positionals.length > 0) throw new UsageError("caps scan takes no package arguments");
+  const concurrency = parseConcurrency(values.concurrency);
+  const output = values.output ?? parseCapsFile(values["caps-file"]);
+  if (output === "") throw new UsageError("--output needs a path");
+  if (output === "-" && values.json) throw new UsageError("--json conflicts with --output -");
 
-/** Runs `depward caps` and returns the exit code. */
-export async function runCaps(argv: string[], rt: Runtime): Promise<number> {
-  const args = parse(argv);
-  if (args.help) {
-    rt.stdout(CAPS_USAGE);
-    return EXIT.allow;
-  }
-  const toStdout = args.output === "-";
-  const path = toStdout ? null : resolve(rt.cwd, args.output);
-  const existing = path === null ? null : await readExisting(path);
-  const { registry, analysisCache, overrides } = await openContext(rt, args);
+  const path = output === "-" ? null : resolve(rt.cwd, output);
+  const existing = path === null ? null : await readCapsFile(path);
+  const { registry, analysisCache, overrides } = await openContext(rt, { config: values.config, offline: values.offline ?? false });
   const result = await scanCapabilities({
     cwd: rt.cwd,
     registry,
     existing,
-    concurrency: args.concurrency,
+    concurrency,
     ...(analysisCache === undefined ? {} : { analysisCache }),
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
     ...(overrides.tarLimits === undefined ? {} : { tarLimits: overrides.tarLimits }),
@@ -137,20 +125,17 @@ export async function runCaps(argv: string[], rt: Runtime): Promise<number> {
   if (result.errors.length > 0) {
     for (const e of result.errors) rt.stderr(`depward: ${e.code}: ${escapeUnsafe(e.message, 500)}\n`);
     rt.stderr(`depward: ${plural(result.errors.length, "package")} could not be analyzed; nothing was written\n`);
-    if (result.errors.some((e) => e.code === "TIMEOUT" || e.code === "NETWORK")) {
-      rt.stderr("depward: network failures are often transient. Analyzed packages are cached, so running the scan again continues where this one stopped; a lower --concurrency helps with large tarballs\n");
-    }
+    rt.stderr(retryHint(result.errors.map((e) => e.code)));
     return EXIT.error;
   }
 
   const text = serializeCapsLockfile(result.lockfile);
   if (path === null) rt.stdout(text);
   else await writeAtomic(path, text);
-  const written = path === null ? "stdout" : escapeUnsafe(args.output, 200);
-  if (args.json) {
-    rt.stdout(`${JSON.stringify({ output: path === null ? "-" : args.output, lockfiles: result.lockfiles, counts: result.counts, skipped: result.skipped }, null, 2)}\n`);
+  if (values.json) {
+    rt.stdout(`${JSON.stringify({ output, lockfiles: result.lockfiles, counts: result.counts, skipped: result.skipped }, null, 2)}\n`);
   } else {
-    (toStdout ? rt.stderr : rt.stdout)(summaryText(result, written));
+    (path === null ? rt.stderr : rt.stdout)(summaryText(result, path === null ? "stdout" : escapeUnsafe(output, 200)));
   }
   return EXIT.allow;
 }

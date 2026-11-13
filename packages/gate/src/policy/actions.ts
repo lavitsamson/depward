@@ -73,6 +73,9 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   "diff-new-obfuscation": "deny",
   "diff-new-dependency": "allow",
   "diff-publisher-changed": "ask",
+  // Capability lockfile (emitted by @depward/caps; the gate never emits it, but config
+  // overrides of it go through this table)
+  "caps-unapproved": "ask",
   "diff-provenance-dropped": "ask",
   "diff-semver-mismatch": "allow",
   // Policy

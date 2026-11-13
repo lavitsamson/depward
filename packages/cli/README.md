@@ -2,8 +2,8 @@
 
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
-> **Status:** pre-release (Phase 4). `depward check`, `depward diff`, `depward caps scan`,
-> and the Claude Code hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
+> **Status:** pre-release (Phase 4). `depward check`, `depward diff`, `depward caps`
+> (`scan`, `check`, `approve`), and the Claude Code hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
 > [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -102,8 +102,33 @@ current directory, the capabilities static analysis finds (`fs`, `net`,
 `child_process`, `env`, ...). Entries with capabilities are approved as `static`.
 Run it again after you review a change: approvals of unchanged entries are kept, and
 entries that are no longer locked are dropped. If any package can't be analyzed, nothing
-is written and the exit code is `1`. Commit the file; `depward caps check` (coming in
-M4.2) fails CI when an update brings a capability nobody approved.
+is written and the exit code is `1`. Commit the file.
+
+## `depward caps check` and `depward caps approve`
+
+```
+depward caps check [--format terminal|json|markdown|sarif] [--fail-on <level>] [--verbose]
+depward caps approve <name>[@version]... [--cap <cap>]... [--reason <text>] [--by <name>]
+
+      --caps-file <path>    The capability lockfile (default capabilities.lock.json)
+      --concurrency, --offline, --config   As for scan
+```
+
+`check` is for CI. Every locked registry version is analyzed and compared with its
+entry in `capabilities.lock.json`, or with the package's highest approved version when
+the exact version has no entry. Each capability it uses that the entry doesn't list is a
+`caps-unapproved` finding, and the exit code is `20`. The report uses the same formats
+as `depward diff`, and the config's `policy`, `allow` and `deny` apply.
+
+```sh
+depward caps check --format markdown
+depward caps approve some-package --reason "spawns its bundled binary"
+```
+
+`approve` analyzes the locked versions of a package (or the one version you name) and
+records their capabilities with who approved them (`--by`, else `git config
+user.name`), the date, and `--reason`. With `--cap`, only those capabilities are
+approved on top of what the package already had.
 
 ## Claude Code hook
 

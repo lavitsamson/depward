@@ -555,3 +555,26 @@ registry checks already report `publisher-changed` or `provenance-dropped`.
   them up automatically.
 - **Fix:** pin A until you have reviewed B.
 - **False positives:** projects that ship features in patch releases.
+
+## Caps (`@depward/caps`)
+
+Emitted by `depward caps check`, which compares every locked registry version with the
+committed `capabilities.lock.json`. Spec: `docs/specs/caps.md` § Check details. The gate
+does not emit these. The default action matters only for config overrides: `caps check`
+fails on any `caps-unapproved` finding the config doesn't set to `allow`.
+
+### caps-unapproved
+
+- **Default severity:** medium (default action: ask); high for `child_process`,
+  `dynamic_code`, and `native_addon`
+- **Emitted by:** `@depward/caps` (`checkCapabilities`)
+- **Meaning:** a locked version uses a capability that its reference entry in
+  `capabilities.lock.json` doesn't list. The reference entry is the exact `name@version`
+  if there is one, else the entry of the same name with the highest version. A package
+  with no entry has nothing approved. One finding per capability, with the version's
+  uses as evidence.
+- **Fix:** review the uses, then `depward caps approve <name>[@version]` (optionally
+  `--cap <cap>` and `--reason <text>`), or roll the dependency back.
+- **False positives:** the analyzer's capability rules are static and can flag code that
+  never runs (a CLI entry point, an optional fallback). Approve with a `reason`, or allow
+  the package in the config.

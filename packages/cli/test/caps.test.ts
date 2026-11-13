@@ -76,8 +76,8 @@ describe("caps: arguments", () => {
   });
 
   test.each([
-    [["caps"], "give a subcommand: scan"],
-    [["caps", "approve"], "unknown caps subcommand"],
+    [["caps"], "give a subcommand: scan, check, or approve"],
+    [["caps", "audit"], "unknown caps subcommand"],
     [["caps", "scan", "left-pad"], "takes no package arguments"],
     [["caps", "scan", "--concurrency", "0"], "--concurrency must be"],
     [["caps", "scan", "--output", "-", "--json"], "--json conflicts with --output -"],
@@ -161,7 +161,7 @@ describe("caps scan", () => {
     const r = await run(["caps", "scan"], timingOut);
     expect(r.code).toBe(EXIT.error);
     expect(r.err).toContain("TIMEOUT: fx-pure@1.0.0: request timed out");
-    expect(r.err).toContain("running the scan again continues where this one stopped");
+    expect(r.err).toContain("running the command again continues where this one stopped");
   });
 
   test("an invalid existing capability lockfile is an error, not overwritten", async () => {
