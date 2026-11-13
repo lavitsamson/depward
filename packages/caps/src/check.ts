@@ -73,20 +73,27 @@ function evidenceFor(profile: PackageProfile, cap: string): Evidence[] {
   return evidence.length <= MAX_EVIDENCE ? evidence : [...evidence.slice(0, MAX_EVIDENCE), { detail: `and ${evidence.length - MAX_EVIDENCE} more` }];
 }
 
+/** Why a capability counts as unapproved, for finding messages. */
+export function unapprovedReason(name: string, version: string, reference: CapsReference | null): string {
+  if (reference === null) return `${escapeUnsafe(name, 214)} has no entry in the capability lockfile`;
+  if (reference.version === version) return "its entry in the capability lockfile does not list it";
+  return `the approved entry for ${escapeUnsafe(reference.version, 64)} does not list it`;
+}
+
+/** Severity of an unapproved capability: high for the high-risk ones, else medium. */
+export function unapprovedSeverity(cap: string): Severity {
+  return HIGH_RISK_CAPABILITIES.has(cap as Capability) ? "high" : "medium";
+}
+
 /** `caps-unapproved` findings for the capabilities `reference` doesn't list. */
 export function unapprovedFindings(name: string, version: string, profile: PackageProfile, capabilities: readonly string[], reference: CapsReference | null): Finding[] {
   const approved = new Set(reference?.entry.capabilities ?? []);
-  const against =
-    reference === null
-      ? `${escapeUnsafe(name, 214)} has no entry in the capability lockfile`
-      : reference.version === version
-        ? "its entry in the capability lockfile does not list it"
-        : `the approved entry for ${escapeUnsafe(reference.version, 64)} does not list it`;
+  const against = unapprovedReason(name, version, reference);
   return capabilities
     .filter((c) => !approved.has(c))
     .map((c) => ({
       id: "caps-unapproved",
-      severity: (HIGH_RISK_CAPABILITIES.has(c as Capability) ? "high" : "medium") as Severity,
+      severity: unapprovedSeverity(c),
       package: name,
       version,
       message: `uses ${c}, which is not approved: ${against}`,
@@ -95,9 +102,11 @@ export function unapprovedFindings(name: string, version: string, profile: Packa
     }));
 }
 
-const maxSeverity = (fs: readonly Finding[]): Severity => fs.map((f) => f.severity).toSorted(compareSeverity)[0] ?? "info";
+/** The highest severity, or `info`. */
+export const maxSeverity = (fs: readonly Finding[]): Severity => fs.map((f) => f.severity).toSorted(compareSeverity)[0] ?? "info";
 
-function comparePackages(a: PackageChangeResult, b: PackageChangeResult): number {
+/** Orders report packages by risk, then name, then version. */
+export function comparePackages(a: PackageChangeResult, b: PackageChangeResult): number {
   return compareSeverity(a.risk, b.risk) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || compareKeys(keyOf({ name: a.name, version: a.to }), keyOf({ name: b.name, version: b.to }));
 }
 

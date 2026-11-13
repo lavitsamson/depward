@@ -3,7 +3,7 @@
 Protects JavaScript projects, and the AI coding agents working in them, from risky npm dependencies. Reads registry metadata and statically analyzes tarballs; never runs package code.
 
 > **Status:** pre-release (Phase 4). `depward check`, `depward diff`, `depward caps`
-> (`scan`, `check`, `approve`), and the Claude Code hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
+> (`scan`, `check`, `approve`, `compare`), and the Claude Code hook (`depward hook claude`) work. Agent setup: [docs/setup](../../docs/setup/README.md). See the
 > [roadmap](../../docs/ROADMAP.md).
 
 ## Example
@@ -129,6 +129,12 @@ depward caps approve some-package --reason "spawns its bundled binary"
 records their capabilities with who approved them (`--by`, else `git config
 user.name`), the date, and `--reason`. With `--cap`, only those capabilities are
 approved on top of what the package already had.
+
+`depward caps compare [--observed .depward/caps-observed.json]` checks what
+`node --import @depward/caps/register` saw at runtime against the same file
+(`caps-observed-unapproved`), with the same formats and exit codes as `check`. Runtime
+observation is defense in depth, not a sandbox: see the
+[caps README](../caps/README.md#limitations).
 
 ## Claude Code hook
 

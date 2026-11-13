@@ -176,3 +176,30 @@ Caveats: 50 updates is a small sample, and these are the newest release of each 
 Signals are compared by id, so a package that already had a signal (for example
 esbuild's networked postinstall) doesn't report it again. That is intended, and it is
 also why this noise level is so low.
+
+## Phase 4: runtime-layer overhead (2026-11-13)
+
+`pnpm bench:caps 5` runs the Express + Prisma-like fixture server
+(`packages/caps/test/fixtures/app/server.mjs`; synthetic packages) with and without
+`node --import @depward/caps/register`. Modes alternate inside each round, and the
+numbers are medians. 16 keep-alive connections spread requests over three routes: an
+ORM query (`fs.promises` + `crypto` + JSON), a static file stream, and plain JSON.
+Windows 11 x64, Node 24.21.0.
+
+| Measure | baseline | observe | overhead |
+|---|---|---|---|
+| Requests per second (6,000 after 1,000 warm-up) | 9,426 | 9,248 | **1.9%** |
+| Startup + 1 request, register from `dist/` (15 runs) | 683 ms | 699 ms | +16 ms |
+| Startup + 1 request, register from source (`bench:caps`) | 691 ms | 744 ms | +53 ms (type stripping) |
+
+**Result:** under the Phase 4 target of 5% on a request benchmark. Attribution on the
+same app is checked by `packages/caps/test/runtime.test.ts`: 30 requests give exactly
+the expected per-package counts.
+
+Caveats:
+- Timings on this machine swing 2–3× under background load. Within one run,
+  differences under about 2% are noise.
+- The fixture does little work per request, so heavier real handlers dilute the
+  overhead further. The per-call costs from the M4.0 spike still apply: about 85 ns per
+  wrapped call, about 18 µs per stack-attributed global, and about 7 µs per `process.env`
+  read through the Proxy on Windows (ADR 0007).

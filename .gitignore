@@ -13,3 +13,6 @@ coverage/
 # The M4.0 spike's fixture app ships synthetic packages in node_modules/.
 !spikes/**/node_modules/
 !spikes/**/dist/
+# The caps runtime tests run a synthetic fixture app with its own node_modules/.
+!packages/caps/test/fixtures/**/node_modules/
+!packages/caps/test/fixtures/**/dist/

@@ -578,3 +578,20 @@ fails on any `caps-unapproved` finding the config doesn't set to `allow`.
 - **False positives:** the analyzer's capability rules are static and can flag code that
   never runs (a CLI entry point, an optional fallback). Approve with a `reason`, or allow
   the package in the config.
+
+### caps-observed-unapproved
+
+- **Default severity:** medium (default action: ask); high for `child_process`,
+  `dynamic_code`, and `native_addon`
+- **Emitted by:** `@depward/caps` (`compareObserved`, `depward caps compare`)
+- **Meaning:** the runtime layer (`node --import @depward/caps/register`) saw a package
+  use a capability that its reference entry in `capabilities.lock.json` doesn't list
+  (same reference rule as `caps-unapproved`). One finding per capability; the evidence
+  lists what was used (`fs.readFileSync`, `process.env.NPM_TOKEN`, `globalThis.fetch`)
+  and how often. Runtime use that static analysis missed (for example through a
+  dynamic `require`) shows up here.
+- **Fix:** review the use, then `depward caps approve <name>[@version]`, or remove the
+  dependency.
+- **False positives:** attribution follows the package that imported the builtin, so a
+  wrapper library (for example `graceful-fs`) is blamed for its callers' file access,
+  and a bundle for the code inlined into it. See the caps README's limitations.

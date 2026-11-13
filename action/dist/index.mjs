@@ -18751,6 +18751,7 @@ const DEFAULT_ACTIONS = {
 	"diff-new-dependency": "allow",
 	"diff-publisher-changed": "ask",
 	"caps-unapproved": "ask",
+	"caps-observed-unapproved": "ask",
 	"diff-provenance-dropped": "ask",
 	"diff-semver-mismatch": "allow",
 	denylisted: "deny"

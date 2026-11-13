@@ -26,6 +26,7 @@ Commands:
   caps scan                   Write capabilities.lock.json from the lockfiles
   caps check                  Fail on capabilities nobody approved (for CI)
   caps approve <name>         Approve a package's capabilities
+  caps compare                Check runtime-observed capabilities against the approvals
 
 Run "depward <command> --help" for a command's options.
 

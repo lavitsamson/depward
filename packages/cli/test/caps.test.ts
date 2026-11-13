@@ -76,7 +76,7 @@ describe("caps: arguments", () => {
   });
 
   test.each([
-    [["caps"], "give a subcommand: scan, check, or approve"],
+    [["caps"], "give a subcommand: scan, check, approve, or compare"],
     [["caps", "audit"], "unknown caps subcommand"],
     [["caps", "scan", "left-pad"], "takes no package arguments"],
     [["caps", "scan", "--concurrency", "0"], "--concurrency must be"],

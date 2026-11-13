@@ -143,6 +143,57 @@ The spike must answer these questions and record the answers in an ADR:
 If the answer to (1) is no, fall back to observe-only via `diagnostics_channel` and
 `async_hooks`, and report to the user before continuing.
 
+**Result:** feasible. See `docs/adr/0007-caps-runtime-hooks.md` (accepted) for the
+answers and the design.
+
+### Runtime details (M4.3 clarifications)
+
+- **Builtins → capabilities:**
+  - `fs` and `fs/promises` → `fs`.
+  - `http`, `https`, `http2`, `net`, `tls`, `dgram`, `dns` and `dns/promises` → `net`.
+  - `child_process` → `child_process`.
+  - `vm` → `dynamic_code`.
+  - `worker_threads` and `cluster` → `worker`.
+  - `crypto` → `crypto`.
+  - `os` → `os_info`.
+
+  Importing is free; each call of a function or constructor from the module counts as
+  one use.
+- **Globals (stack attribution):**
+  - `fetch`, `WebSocket` and `EventSource` → `net`.
+  - `process.getBuiltinModule` → the builtin's capability.
+  - `process.dlopen` → `native_addon`.
+  - `process.env` → `env`. By default only reads of credential-like keys (the analyzer's
+    `env-sensitive-read` rule: TOKEN, SECRET, KEY, PASSWORD, `NPM_`, `AWS_`, `GITHUB_`,
+    `GH_`, `CI_JOB`) and enumeration of the whole environment are attributed, because
+    each capture costs about 18 µs (approved 2026-11-13). `DEPWARD_CAPS_ENV=all`
+    attributes every read.
+- **Not observed:** `eval`, `new Function`, `dynamic_require`.
+- **Attribution:** the package is the innermost `node_modules/<name>` (or
+  `<@scope>/<name>`) segment of the importing file (builtins) or of the first stack
+  frame with a location (globals). Its version comes from that directory's
+  `package.json`, so the key is `name@version`, as in the capability lockfile.
+  Application code is not attributed.
+- **Output:** `observe` mode writes `.depward/caps-observed.json` (relative to the
+  working directory at startup; `DEPWARD_CAPS_OUT` overrides) when the process exits. An
+  existing file is merged (counts add up, members are unioned), so several runs (a test
+  suite, then the app) accumulate. Format:
+  ```json
+  { "version": 1, "packages": { "orm-client@1.0.0": { "fs": { "count": 3, "members": ["fs.readFileSync"] } } } }
+  ```
+  Members are capped at 50 per capability. Nothing is written when nothing was observed.
+  A process killed by a signal writes nothing.
+- **Scope:**
+  - Worker threads are not observed. The hooks are not installed in workers in M4.3.
+  - Child processes are observed only if they get the `--import` flag themselves (for
+    example through `NODE_OPTIONS`).
+- **`depward caps compare`** reads the observed file and the capability lockfile and
+  reports `caps-observed-unapproved`: one finding per observed capability that the
+  package's reference entry (same rule as `check`) doesn't list. It uses the same report
+  formats and exit codes as `check`.
+- `DEPWARD_CAPS_MODE=enforce` arrives in M4.4. Until then, any value other than
+  `observe` prints a warning and observes.
+
 ## Runtime usage
 
 ```bash
