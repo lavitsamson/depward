@@ -839,7 +839,7 @@ function createRegistryClient(opts = {}) {
 		async weeklyDownloads(name) {
 			assertPackageName(name);
 			const registry = registryFor(await config(), name);
-			if (!PUBLIC_REGISTRY_HOSTS.has(new URL(registry).hostname)) return null;
+			if (!PUBLIC_REGISTRY_HOSTS$1.has(new URL(registry).hostname)) return null;
 			const body = await cachedGet("downloads", name, `${downloadsApi}downloads/point/last-week/${name}`, ttlDownloads, 65536, null);
 			if (body === null) return null;
 			const doc = parseJson(body, `download counts for ${name}`);
@@ -899,7 +899,7 @@ async function resolveConfig(opts) {
 	}
 	return cfg;
 }
-var MINUTE, USER_AGENT, PUBLIC_REGISTRY_HOSTS, MEMO_MAX;
+var MINUTE, USER_AGENT, PUBLIC_REGISTRY_HOSTS$1, MEMO_MAX;
 var init_client = __esmMin((() => {
 	init_cache();
 	init_errors();
@@ -910,7 +910,7 @@ var init_client = __esmMin((() => {
 	init_types$2();
 	MINUTE = 6e4;
 	USER_AGENT = "depward (+https://github.com/lavitsamson/depward)";
-	PUBLIC_REGISTRY_HOSTS = /* @__PURE__ */ new Set(["registry.npmjs.org", "registry.npmjs.com"]);
+	PUBLIC_REGISTRY_HOSTS$1 = /* @__PURE__ */ new Set(["registry.npmjs.org", "registry.npmjs.com"]);
 	MEMO_MAX = 100;
 }));
 // ../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
@@ -9773,7 +9773,7 @@ function parseNpm(doc) {
 		}
 		const version = str(raw["version"]) ?? resolved ?? "";
 		let source = raw["inBundle"] === true ? "bundled" : resolved ? classifyRef(resolved) : "registry";
-		if (source === "tarball" && isSemver(version) && integrity && resolved?.includes("/-/")) source = "registry";
+		if (source === "tarball" && isSemver(version) && resolved?.includes("/-/")) source = "registry";
 		addEntry(entries, {
 			name,
 			version,
@@ -10142,8 +10142,8 @@ function unsupported(path, detail) {
 }
 /**
 * Compares two lockfiles. Fields one side does not record (`null`) are not compared, so
-* switching package managers does not report every entry as changed. When neither side
-* has integrity, a different `resolved` (for example a new git commit) counts as a change.
+* switching package managers does not report every entry as changed. When either side
+* lacks integrity, a different `resolved` (another host, a new git commit) counts as a change.
 */
 function diffLockfiles(base, head) {
 	const added = [];
@@ -10176,7 +10176,7 @@ function differs(x, y) {
 function entryChanged(a, b) {
 	if (a.source !== b.source) return true;
 	if (differs(a.integrity, b.integrity)) return true;
-	if (a.integrity === null && b.integrity === null && differs(a.resolved, b.resolved)) return true;
+	if ((a.integrity === null || b.integrity === null) && differs(a.resolved, b.resolved)) return true;
 	return differs(a.dev, b.dev) || differs(a.optional, b.optional);
 }
 var KNOWN_LOCKFILES, KNOWN, MAX_ALIASES;
@@ -15885,9 +15885,24 @@ function readInstallScripts(pkg, hasBindingGyp) {
 	if (hasBindingGyp && out.install === void 0 && out.preinstall === void 0) out.install = "node-gyp rebuild";
 	return out;
 }
+/**
+* `node … -e` within one command (between `;`, `&`, `|`). Word by word, so a script is
+* read in linear time: a single regex with a repeated word group was quadratic, and a
+* package could stall analysis with a long script full of `node` words.
+*/
+function runsInlineNode(script) {
+	for (const command of script.split(/[;&|]/)) {
+		let afterNode = false;
+		for (const word of command.split(/\s+/)) {
+			if (afterNode && EVAL_FLAG.test(word)) return true;
+			if (NODE_WORD.test(word)) afterNode = true;
+		}
+	}
+	return false;
+}
 /** Why a script string itself looks network-capable, or `undefined`. */
 function scriptNetworkReason(script) {
-	return NETWORK_PATTERNS.find((p) => p.re.test(script))?.why;
+	return NETWORK_PATTERNS.find((p) => p.test(script))?.why;
 }
 /** Splits a script into words, dropping shell operators and surrounding quotes. Best-effort. */
 function words(script) {
@@ -15929,28 +15944,30 @@ function resolveLocal(fromDir, spec, has) {
 		`${base}/index.mjs`
 	]) if (has(c)) return c;
 }
-var INSTALL_HOOKS, NETWORK_PATTERNS;
+var INSTALL_HOOKS, NODE_WORD, EVAL_FLAG, NETWORK_PATTERNS;
 var init_scripts = __esmMin((() => {
 	INSTALL_HOOKS = [
 		"preinstall",
 		"install",
 		"postinstall"
 	];
+	NODE_WORD = /(?:^|[(`])node(?:\.exe)?$/i;
+	EVAL_FLAG = /^(?:-e|--eval|-p|--print)(?:=|$)/i;
 	NETWORK_PATTERNS = [
 		{
-			re: /(?:^|[\s;&|(`])(?:curl|wget)(?:\.exe)?(?=$|[\s;&|)`])/i,
+			test: (s) => /(?:^|[\s;&|(`])(?:curl|wget)(?:\.exe)?(?=$|[\s;&|)`])/i.test(s),
 			why: "runs curl/wget"
 		},
 		{
-			re: /(?:^|[\s;&|(`])node(?:\.exe)?\s+(?:[^\s;&|]+\s+)*?(?:-e|--eval|-p|--print)(?=$|[\s=])/i,
+			test: runsInlineNode,
 			why: "runs inline code with node -e"
 		},
 		{
-			re: /\b(?:https?|ftp):\/\//i,
+			test: (s) => /\b(?:https?|ftp):\/\//i.test(s),
 			why: "contains a URL"
 		},
 		{
-			re: /\b(?:Invoke-WebRequest|Invoke-RestMethod|iwr|irm|certutil|bitsadmin)\b/i,
+			test: (s) => /\b(?:Invoke-WebRequest|Invoke-RestMethod|iwr|irm|certutil|bitsadmin)\b/i.test(s),
 			why: "runs a Windows download tool"
 		}
 	];
@@ -17519,8 +17536,9 @@ var init_visit = __esmMin((() => {
 * Statically profiles one package: its capabilities, risk signals, files, endpoints, and
 * env keys. It never executes package code. Pass the output of `readTarball`.
 *
-* Throws a `DepwardError` with `LIMIT_EXCEEDED` (too many files) or `INVALID_ARCHIVE`
-* (no readable `package.json` object at the package root).
+* Throws a `DepwardError` with `LIMIT_EXCEEDED` (too many files), `INVALID_ARCHIVE`
+* (no readable `package.json` object at the package root), or `TIMEOUT` (past
+* `opts.deadline`).
 */
 function analyzePackage(pkgFiles, opts = {}) {
 	const maxFileBytes = opts.maxFileBytes ?? 5242880;
@@ -17548,6 +17566,7 @@ function analyzePackage(pkgFiles, opts = {}) {
 	};
 	const minified = [];
 	for (const file of pkgFiles.files) {
+		if (opts.deadline !== void 0 && Date.now() > opts.deadline) throw new DepwardError("TIMEOUT", `analysis did not finish in time (stopped after ${files.length} of ${pkgFiles.files.length} files)`);
 		const c = classifyFile(file.path, file.data);
 		const summary = {
 			path: file.path,
@@ -17771,7 +17790,7 @@ var init_analyze = __esmMin((() => {
 }));
 // ../packages/analyzer/src/index.ts
 var src_exports = /* @__PURE__ */ __exportAll({
-	ANALYSIS_REVISION: () => 1,
+	ANALYSIS_REVISION: () => 2,
 	CAPABILITIES: () => CAPABILITIES,
 	SIGNAL_SEVERITY: () => SIGNAL_SEVERITY,
 	VERSION: () => VERSION$1,
@@ -18494,9 +18513,10 @@ const ANALYSIS_NAMESPACE = "analysis";
 function analysisCacheKey(meta, opts, analyzer) {
 	const hash = meta.dist.integrity === void 0 ? null : strongestHash(meta.dist.integrity);
 	if (hash === null) return null;
+	const { deadline: _deadline, ...analyze } = opts.analyze ?? {};
 	const limits = JSON.stringify({
 		tar: opts.tarLimits ?? {},
-		analyze: opts.analyze ?? {}
+		analyze
 	});
 	return `analyzer@${analyzer.VERSION}:r${analyzer.ANALYSIS_REVISION}:${hash.algorithm}-${hash.digest}:${limits}`;
 }
@@ -18713,6 +18733,7 @@ function strictest(actions) {
 const DEFAULT_ACTIONS = {
 	"non-registry-source": "ask",
 	"unparseable-command": "ask",
+	"registry-override": "ask",
 	"global-install": "allow",
 	"package-not-found": "deny",
 	"known-hallucinated-name": "deny",
@@ -18728,6 +18749,7 @@ const DEFAULT_ACTIONS = {
 	"tarball-integrity-mismatch": "deny",
 	"tarball-unsafe": "deny",
 	"lockfile-integrity-mismatch": "deny",
+	"lockfile-untrusted-source": "deny",
 	"install-script": "allow",
 	"install-script-network": "ask",
 	"env-sensitive-read": "allow",
@@ -18952,6 +18974,67 @@ function integrityFinding(entry, meta, lockfile) {
 		docsUrl: findingDocsUrl("lockfile-integrity-mismatch")
 	};
 }
+/** The npm public registry under the hostnames lockfiles record for it. */
+const PUBLIC_REGISTRY_HOSTS = /* @__PURE__ */ new Set([
+	"registry.npmjs.org",
+	"registry.npmjs.com",
+	"registry.yarnpkg.com"
+]);
+function parseUrl(s) {
+	try {
+		return new URL(s);
+	} catch {
+		return null;
+	}
+}
+/** Whether `resolved` is served by the registry: the origin of its own tarball URL, or the public npm registry over https. */
+function fromRegistry(resolved, registryTarball) {
+	const url = parseUrl(resolved);
+	if (url === null) return false;
+	if (url.origin === parseUrl(registryTarball)?.origin) return true;
+	return url.protocol === "https:" && PUBLIC_REGISTRY_HOSTS.has(url.hostname.toLowerCase());
+}
+/**
+* `lockfile-untrusted-source` when a registry entry downloads its tarball from a host
+* other than the registry and no lockfile hash matches one the registry publishes
+* (no integrity, or only algorithms the registry doesn't list). The package manager
+* would install bytes nobody checked, while depward analyzed the registry's tarball.
+* `null` when the hashes agree (a mirror), disagree (that is
+* `lockfile-integrity-mismatch`), or the URL is the registry's own.
+*/
+function untrustedSourceFinding(entry, meta, lockfile) {
+	if (entry.resolved === null) return null;
+	if (entry.integrity !== null && compareIntegrity(entry.integrity, meta.dist) !== null) return null;
+	if (fromRegistry(entry.resolved, meta.dist.tarball)) return null;
+	const host = parseUrl(entry.resolved)?.host;
+	return {
+		id: "lockfile-untrusted-source",
+		severity: "critical",
+		package: entry.name,
+		version: entry.version,
+		message: `${lockfile} downloads ${entry.name}@${entry.version} from ${host === void 0 ? "an unparseable URL" : host}, not the registry, and has no hash the registry also publishes, so what gets installed may not be what depward checked`,
+		evidence: [
+			{
+				file: lockfile,
+				snippet: escapeUnsafe(entry.resolved),
+				detail: "lockfile resolved URL"
+			},
+			...entry.integrity === null ? [] : [{
+				snippet: escapeUnsafe(entry.integrity),
+				detail: "lockfile integrity"
+			}],
+			{
+				snippet: escapeUnsafe(meta.dist.integrity ?? `sha1 ${meta.dist.shasum ?? "?"}`),
+				detail: "registry integrity"
+			}
+		],
+		docsUrl: findingDocsUrl("lockfile-untrusted-source")
+	};
+}
+/** The lockfile-vs-registry findings for one entry: integrity mismatch, untrusted source. */
+function lockfileFindings(entry, meta, lockfile) {
+	return [integrityFinding(entry, meta, lockfile), untrustedSourceFinding(entry, meta, lockfile)].filter((f) => f !== null);
+}
 const tarballFindings = (fs) => fs.filter((f) => f.id.startsWith("tarball-"));
 /** The gate tarball-check options carried by {@link VersionDiffOptions}. */
 function tarballOptions(opts) {
@@ -18999,8 +19082,7 @@ async function diffVersions(name, from, to, opts) {
 			});
 			findings.push(...result.diff.findings);
 		}
-		const mismatch = opts.entry ? integrityFinding(opts.entry, metaB, opts.lockfile ?? "lockfile") : null;
-		if (mismatch) findings.push(mismatch);
+		if (opts.entry) findings.push(...lockfileFindings(opts.entry, metaB, opts.lockfile ?? "lockfile"));
 		result.findings = sortFindings(findings);
 		result.risk = diffRisk(result.findings);
 	} catch (err) {
@@ -19035,8 +19117,7 @@ async function checkNew(entry, kind, lockfile, opts) {
 			...opts.analyze === void 0 ? {} : { analyze: opts.analyze }
 		});
 		result.errors.push(...checked.errors);
-		const mismatch = checked.meta ? integrityFinding(entry, checked.meta, lockfile) : null;
-		result.findings = sortFindings(mismatch ? [...checked.findings, mismatch] : checked.findings);
+		result.findings = sortFindings([...checked.findings, ...checked.meta ? lockfileFindings(entry, checked.meta, lockfile) : []]);
 		result.risk = maxSeverity(result.findings);
 	} catch (err) {
 		result.errors.push(toError(err));
@@ -19139,13 +19220,21 @@ function planLockfile(diff) {
 		});
 	}
 	for (const { before, after } of diff.changed) {
-		if (after.source === before.source && (after.integrity === null || before.integrity === null || after.integrity === before.integrity)) continue;
+		if (after.source === before.source && !contentMayDiffer(before, after)) continue;
 		route(plan, {
 			kind: "changed",
 			entry: after
 		});
 	}
 	return plan;
+}
+/**
+* Whether a same-name@version change can install different bytes: the integrity changed,
+* or `resolved` moved while one side has no integrity to pin the content.
+*/
+function contentMayDiffer(a, b) {
+	if (a.integrity !== null && b.integrity !== null) return a.integrity !== b.integrity;
+	return a.resolved !== null && b.resolved !== null && a.resolved !== b.resolved;
 }
 function route(plan, check) {
 	if (check.entry.source === "registry") plan.checks.push(check);
@@ -19450,6 +19539,7 @@ const LABEL = {
 	"diff-provenance-dropped": "provenance dropped",
 	"diff-semver-mismatch": "semver mismatch",
 	"lockfile-integrity-mismatch": "integrity mismatch",
+	"lockfile-untrusted-source": "untrusted source",
 	"non-registry-source": "non-registry source",
 	denylisted: "deny-listed"
 };

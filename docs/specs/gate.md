@@ -44,6 +44,20 @@ unclosed quote) produces only that one finding: no partial `PackageRequest`s are
 extracted from the broken command. Commands with no package-manager invocation produce
 an `allow` with no findings and must return within 50 ms.
 
+Registry overrides (added 2026-11-14) produce a `registry-override` finding (high,
+default: ask). depward looks packages up in the registry from `.npmrc` and the config,
+so a command that sends the package manager elsewhere would install packages depward
+never checked. Overrides are: on an install, exec, or lockfile invocation, a flag
+`--registry`, `--@scope:registry`, `--userconfig`, `--globalconfig`,
+`--replace-registry-host`, `--use-yarnrc`, pnpm's `--config.<one of those>`, or bun's
+`-c`/`--config` (a bunfig can set the registry); an environment assignment on that
+command (`VAR=x npm …`, `env VAR=x …`) to `npm_config_*`, `pnpm_config_*`, `yarn_*`, or
+`bun_config_*` variables that name a registry, a user or global config, or a yarnrc;
+the same assignment through `export` / `declare` / a bare assignment anywhere in the
+line, when the line also installs; and `npm config set` / `npm set` / `pnpm config
+set` / `yarn config set` of a registry key (these change every later install). Flags
+after an exec'd package belong to that program and are not overrides.
+
 `npm update` / `pnpm update` / `yarn upgrade` are not install forms. They move existing
 dependencies within their declared ranges, and the resulting lockfile change is diff's
 job (like lockfile-mode commands below).
@@ -262,6 +276,12 @@ Expected design (verify):
 - Total time budget: 4 s. On timeout, use `onError`. This is deliberately below the 5 s
   cold-check target: a cold-cache check may time out and fall back to `onError` (`ask`
   by default). That is accepted; a warm cache stays well inside the budget.
+- The budget is also passed to the analyzer as `deadline` (added 2026-11-14). Analysis
+  is synchronous, so the budget timer can't fire during it: without the deadline, a
+  package that is slow to analyze kept the hook busy for as long as the analysis took,
+  possibly past the agent's own hook timeout. The analyzer checks the deadline before
+  each file and stops with `TIMEOUT`, which costs `onError`. The overrun is at most one
+  file (5 MB at most).
 - Never write anything to stdout other than the decision JSON. Send logs to stderr.
 
 Verified against https://code.claude.com/docs/en/hooks on 2026-11-10 (M2.6,

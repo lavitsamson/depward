@@ -52,6 +52,58 @@ export function integrityFinding(entry: LockfileEntry, meta: VersionMeta, lockfi
   };
 }
 
+/** The npm public registry under the hostnames lockfiles record for it. */
+const PUBLIC_REGISTRY_HOSTS: ReadonlySet<string> = new Set(["registry.npmjs.org", "registry.npmjs.com", "registry.yarnpkg.com"]);
+
+function parseUrl(s: string): URL | null {
+  try {
+    return new URL(s);
+  } catch {
+    return null;
+  }
+}
+
+/** Whether `resolved` is served by the registry: the origin of its own tarball URL, or the public npm registry over https. */
+function fromRegistry(resolved: string, registryTarball: string): boolean {
+  const url = parseUrl(resolved);
+  if (url === null) return false;
+  if (url.origin === parseUrl(registryTarball)?.origin) return true;
+  return url.protocol === "https:" && PUBLIC_REGISTRY_HOSTS.has(url.hostname.toLowerCase());
+}
+
+/**
+ * `lockfile-untrusted-source` when a registry entry downloads its tarball from a host
+ * other than the registry and no lockfile hash matches one the registry publishes
+ * (no integrity, or only algorithms the registry doesn't list). The package manager
+ * would install bytes nobody checked, while depward analyzed the registry's tarball.
+ * `null` when the hashes agree (a mirror), disagree (that is
+ * `lockfile-integrity-mismatch`), or the URL is the registry's own.
+ */
+export function untrustedSourceFinding(entry: LockfileEntry, meta: VersionMeta, lockfile: string): Finding | null {
+  if (entry.resolved === null) return null;
+  if (entry.integrity !== null && compareIntegrity(entry.integrity, meta.dist) !== null) return null;
+  if (fromRegistry(entry.resolved, meta.dist.tarball)) return null;
+  const host = parseUrl(entry.resolved)?.host;
+  return {
+    id: "lockfile-untrusted-source",
+    severity: "critical",
+    package: entry.name,
+    version: entry.version,
+    message: `${lockfile} downloads ${entry.name}@${entry.version} from ${host === undefined ? "an unparseable URL" : host}, not the registry, and has no hash the registry also publishes, so what gets installed may not be what depward checked`,
+    evidence: [
+      { file: lockfile, snippet: escapeUnsafe(entry.resolved), detail: "lockfile resolved URL" },
+      ...(entry.integrity === null ? [] : [{ snippet: escapeUnsafe(entry.integrity), detail: "lockfile integrity" }]),
+      { snippet: escapeUnsafe(meta.dist.integrity ?? `sha1 ${meta.dist.shasum ?? "?"}`), detail: "registry integrity" },
+    ],
+    docsUrl: findingDocsUrl("lockfile-untrusted-source"),
+  };
+}
+
+/** The lockfile-vs-registry findings for one entry: integrity mismatch, untrusted source. */
+function lockfileFindings(entry: LockfileEntry, meta: VersionMeta, lockfile: string): Finding[] {
+  return [integrityFinding(entry, meta, lockfile), untrustedSourceFinding(entry, meta, lockfile)].filter((f): f is Finding => f !== null);
+}
+
 const tarballFindings = (fs: readonly Finding[]): Finding[] => fs.filter((f) => f.id.startsWith("tarball-"));
 
 /** The gate tarball-check options carried by {@link VersionDiffOptions}. */
@@ -100,8 +152,7 @@ export async function diffVersions(
       });
       findings.push(...result.diff.findings);
     }
-    const mismatch = opts.entry ? integrityFinding(opts.entry, metaB, opts.lockfile ?? "lockfile") : null;
-    if (mismatch) findings.push(mismatch);
+    if (opts.entry) findings.push(...lockfileFindings(opts.entry, metaB, opts.lockfile ?? "lockfile"));
     result.findings = sortFindings(findings);
     result.risk = diffRisk(result.findings);
   } catch (err) {
@@ -129,8 +180,7 @@ export async function checkNew(entry: LockfileEntry, kind: Extract<PackageChange
       },
     );
     result.errors.push(...checked.errors);
-    const mismatch = checked.meta ? integrityFinding(entry, checked.meta, lockfile) : null;
-    result.findings = sortFindings(mismatch ? [...checked.findings, mismatch] : checked.findings);
+    result.findings = sortFindings([...checked.findings, ...(checked.meta ? lockfileFindings(entry, checked.meta, lockfile) : [])]);
     result.risk = maxSeverity(result.findings);
   } catch (err) {
     result.errors.push(toError(err));

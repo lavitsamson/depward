@@ -103,6 +103,13 @@ strong signal, not a guarantee.
     package.
   - A package can also call the runtime's global registry directly, and attribute use
     to another package.
+  - A package can register its own `module.registerHooks` resolve hook, which runs
+    before the runtime's and can hand it the real builtins.
+  - Worker threads run without the runtime, so a package approved for `worker` can do
+    anything in a worker.
+  - Replacing JavaScript built-ins (`Set.prototype.has`, `String.prototype.*`,
+    `JSON.parse`, `URL`, the array iterator, ...) is covered: the runtime captures what
+    it uses at startup, and tests probe each of these.
 - **Attribution follows the importer, not the caller:**
   - A wrapper library (`graceful-fs`, `fs-extra`) is blamed for its callers' use.
   - Code a bundler inlined into a package counts as that package.

@@ -153,6 +153,12 @@ Not probed, but bypasses by construction:
 - Child processes that don't inherit `--import`.
 - Tampering with the intrinsics the wrappers use. A package can replace `Reflect.apply`
   or `WeakMap.prototype.get`; the real implementation must capture these at startup.
+  (2026-11-14: M4.4 had captured them only for the wrappers. One line,
+  `Set.prototype.has = () => true`, turned every denial into an approval, and
+  String/JSON/URL/array replacements fooled attribution and the hooks. The policy,
+  attribution, and hooks now use captured intrinsics too, with no array methods or
+  for…of; `test/runtime.test.ts` probes each replacement.)
+- A package's own `module.registerHooks` resolve hook, which runs before ours.
 
 Methods on instances (`socket.write`, `server.listen`, a `FileHandle`'s methods) are not
 wrapped. Only the module-level functions and constructors that produce those instances

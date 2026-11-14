@@ -40,8 +40,11 @@ export function parseNpm(doc: Record<string, unknown>): Map<string, LockfileEntr
 
     const version = str(raw["version"]) ?? resolved ?? "";
     let source = raw["inBundle"] === true ? "bundled" as const : resolved ? classifyRef(resolved) : "registry" as const;
-    // npm records registry packages by their tarball URL: a semver version + integrity + /-/ path.
-    if (source === "tarball" && isSemver(version) && integrity && resolved?.includes("/-/")) source = "registry";
+    // npm records registry packages by their tarball URL: a semver version + /-/ path.
+    // Integrity is not required here: an entry that looks like a registry package but
+    // lacks it must still be checked as one (diff's `lockfile-untrusted-source`), not
+    // waved through as an ordinary tarball dependency.
+    if (source === "tarball" && isSemver(version) && resolved?.includes("/-/")) source = "registry";
     addEntry(entries, { name, version, source, integrity, resolved, ...flags });
   }
   return entries;

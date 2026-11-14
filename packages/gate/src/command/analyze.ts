@@ -16,6 +16,39 @@ const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const RESERVED = new Set(["!", "{", "}", "if", "then", "else", "elif", "do", "while", "until"]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish"]);
 const MAX_SNIPPET = 200;
+/** Builtins whose `NAME=value` arguments set (exported) shell variables. */
+const DECLARE = new Set(["export", "declare", "typeset", "readonly", "local"]);
+
+// Settings that change which registry or config file the package manager uses. depward
+// looks packages up in the registry from .npmrc / the config, so any of these means
+// the install may come from somewhere depward never checked.
+const REGISTRY_SETTING = /^(?:@[^:=]+:)?registry$|^(?:userconfig|globalconfig|npmregistryserver|replace-registry-host|use-yarnrc)$/i;
+const REGISTRY_ENV = /^(?:npm_config_|pnpm_config_|yarn_|bun_config_)(?:.*registry.*|userconfig|globalconfig|rc_filename)$/i;
+
+/** The registry-changing part of a flag (`--registry=x`, `--config.registry=x`, bun `-c x`), or `undefined`. */
+function registryFlag(manager: PackageManager, flag: string): string | undefined {
+  const eq = flag.indexOf("=");
+  const name = (eq < 0 ? flag : flag.slice(0, eq)).replace(/^-+/, "");
+  if (REGISTRY_SETTING.test(name) || REGISTRY_SETTING.test(name.replace(/^config\./i, ""))) return flag;
+  if (manager === "bun" && (name === "c" || name === "config")) return flag; // bunfig.toml can set the registry
+  return undefined;
+}
+
+/** `npm config set registry …`, `npm set @s:registry=…`, `yarn config set npmRegistryServer …`. */
+function setsRegistry(argv: readonly string[]): string | undefined {
+  const words = argv.slice(1).filter((w) => !w.startsWith("-"));
+  const at = words[0] === "set" ? 1 : words[0] === "config" && words[1] === "set" ? 2 : -1;
+  if (at < 0) return undefined;
+  const key = words[at];
+  if (key === undefined) return undefined;
+  return REGISTRY_SETTING.test(key.split("=")[0] ?? "") ? `${argv[0] ?? ""} ${words.slice(0, at + 1).join(" ")}` : undefined;
+}
+
+/** An assignment word's registry-changing variable, or `undefined`. */
+function registryAssignment(word: string): string | undefined {
+  const eq = word.indexOf("=");
+  return eq > 0 && REGISTRY_ENV.test(word.slice(0, eq)) ? word : undefined;
+}
 
 interface Wrapper {
   /** Flags that take a value. */
@@ -71,6 +104,19 @@ class Analysis {
   readonly requests: PackageRequest[] = [];
   readonly findings: Finding[] = [];
   readonly invocations: Invocation[] = [];
+  /** Registry variables set by `export` or a bare assignment, which later commands inherit. */
+  readonly exported: string[] = [];
+
+  registryOverride(snippet: string, causes: readonly string[]): void {
+    this.findings.push({
+      id: "registry-override",
+      severity: "high",
+      package: "(command)",
+      message: "this command makes the package manager use a registry or config file that depward didn't check, so what it installs may not be what depward looked up",
+      evidence: [{ snippet: truncate(snippet), detail: truncate(causes.join(", ")) }],
+      docsUrl: findingDocsUrl("registry-override"),
+    });
+  }
 
   unparseable(snippet: string, detail: string): void {
     this.findings.push({
@@ -118,15 +164,22 @@ class Analysis {
     const words = cmd.words;
     let i = 0;
     let xargs = false;
+    // `VAR=x` prefixes (and `env VAR=x`) set the environment of this command only.
+    const assignments: string[] = [];
     for (;;) {
       const word = words[i];
-      if (word === undefined) return;
+      if (word === undefined) {
+        // Only assignments: shell variables, which an earlier `export` may have exported.
+        this.exported.push(...assignments);
+        return;
+      }
       if (word.dynamic) {
         const next = words[i + 1];
         if (next !== undefined && PM_SUBCOMMANDS.has(next.text)) this.unparseable(cmd.text, "the program name is computed at run time");
         return;
       }
       if (RESERVED.has(word.text) || ASSIGNMENT.test(word.text)) {
+        if (ASSIGNMENT.test(word.text)) assignments.push(word.text);
         i++;
         continue;
       }
@@ -138,11 +191,15 @@ class Analysis {
         if (split !== undefined) return this.joined(split, cmd.text, depth);
       }
       if (prog === "xargs") xargs = true;
-      i = skipWrapper(words, i + 1, wrapper);
+      i = skipWrapper(words, i + 1, wrapper, prog === "env", assignments);
     }
 
     const prog = programName((words[i] as Word).text);
     const args = words.slice(i + 1);
+    if (DECLARE.has(prog)) {
+      this.exported.push(...args.filter((w) => !w.text.startsWith("-")).map((w) => w.text));
+      return;
+    }
     if (SHELLS.has(prog)) return this.shell(args, cmd, depth);
     if (prog === "eval") return this.joined(args, cmd.text, depth);
     if (prog === "cmd") {
@@ -162,8 +219,16 @@ class Analysis {
     if (entry === undefined) return;
     const [manager, handler] = entry;
     const r = handler(managerWords.slice(1));
-    this.invocations.push({ manager, kind: r.kind, argv: managerWords.map((w) => w.text) });
+    const argv = managerWords.map((w) => w.text);
+    this.invocations.push({ manager, kind: r.kind, argv });
     this.manager(manager, r, cmd, depth, xargs);
+
+    // A registry change on this command, or a config change that every later install inherits.
+    const causes = r.kind === "other"
+      ? [setsRegistry(argv)]
+      : [...r.flags.map((f) => registryFlag(manager, f)), ...assignments.map(registryAssignment)];
+    const found = causes.filter((c): c is string => c !== undefined);
+    if (found.length > 0) this.registryOverride(cmd.text, found);
   }
 
   /** `env -S "<string>"` splits the string into words; returns them plus the rest. */
@@ -257,13 +322,19 @@ class Analysis {
   }
 }
 
-function skipWrapper(words: readonly Word[], start: number, wrapper: Wrapper): number {
+/**
+ * The index of the wrapped command. Assignment words are collected into `assignments`;
+ * `env` accepts any `NAME=value`, even names the shell couldn't assign.
+ */
+function skipWrapper(words: readonly Word[], start: number, wrapper: Wrapper, anyName: boolean, assignments: string[]): number {
   let i = start;
   while (i < words.length) {
     const t = (words[i] as Word).text;
     if (t === "--") return i + 1;
-    if (ASSIGNMENT.test(t)) i++;
-    else if (t.length > 1 && t.startsWith("-")) i += wrapper.values?.includes(t) === true ? 2 : 1;
+    if (ASSIGNMENT.test(t) || (anyName && /^[^=-][^=]*=/.test(t))) {
+      assignments.push(t);
+      i++;
+    } else if (t.length > 1 && t.startsWith("-")) i += wrapper.values?.includes(t) === true ? 2 : 1;
     else break;
   }
   return i + (wrapper.positionals ?? 0);
@@ -284,5 +355,8 @@ function skipWrapper(words: readonly Word[], start: number, wrapper: Wrapper): n
 export function parseInstallCommand(command: string): CommandAnalysis {
   const analysis = new Analysis();
   analysis.text(command, 0);
+  // `export NPM_CONFIG_REGISTRY=…; npm i x`: the variable reaches every later install.
+  const exported = analysis.exported.map(registryAssignment).filter((c): c is string => c !== undefined);
+  if (exported.length > 0 && analysis.invocations.some((inv) => inv.kind !== "other")) analysis.registryOverride(command, exported);
   return { requests: analysis.requests, findings: analysis.findings, invocations: analysis.invocations };
 }

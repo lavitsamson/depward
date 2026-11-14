@@ -33,6 +33,19 @@ async function metaOf(name: string, version: string): Promise<VersionMeta> {
 }
 
 describe("analysis cache", () => {
+  test("the deadline is not part of the key; a timed-out analysis is an error, not cached", async () => {
+    const meta = await metaOf("depward-fixture-takeover", "1.1.0");
+    expect(keyOf(meta, { analyze: { maxFiles: 9, deadline: 1 } })).toBe(keyOf(meta, { analyze: { maxFiles: 9 } }));
+    const analysisCache = createMemoryCache();
+    const registry = counting();
+    const late = await checkTarball(meta, { registry, analysisCache, analyze: { deadline: Date.now() - 1 } });
+    expect(late.errors.map((e) => e.code)).toEqual(["TIMEOUT"]);
+    expect(late.findings).toEqual([]);
+    const onTime = await checkTarball(meta, { registry, analysisCache });
+    expect(onTime.findings.map((f) => f.id)).toContain("env-exfil-pattern");
+    expect(registry.calls).toBe(2);
+  });
+
   test("a hit skips the download and gives the same result", async () => {
     const meta = await metaOf("depward-fixture-takeover", "1.1.0");
     const analysisCache = createMemoryCache();

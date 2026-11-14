@@ -24,16 +24,35 @@ export function readInstallScripts(pkg: Record<string, unknown>, hasBindingGyp: 
   return out;
 }
 
-const NETWORK_PATTERNS: { re: RegExp; why: string }[] = [
-  { re: /(?:^|[\s;&|(`])(?:curl|wget)(?:\.exe)?(?=$|[\s;&|)`])/i, why: "runs curl/wget" },
-  { re: /(?:^|[\s;&|(`])node(?:\.exe)?\s+(?:[^\s;&|]+\s+)*?(?:-e|--eval|-p|--print)(?=$|[\s=])/i, why: "runs inline code with node -e" },
-  { re: /\b(?:https?|ftp):\/\//i, why: "contains a URL" },
-  { re: /\b(?:Invoke-WebRequest|Invoke-RestMethod|iwr|irm|certutil|bitsadmin)\b/i, why: "runs a Windows download tool" },
+const NODE_WORD = /(?:^|[(`])node(?:\.exe)?$/i;
+const EVAL_FLAG = /^(?:-e|--eval|-p|--print)(?:=|$)/i;
+
+/**
+ * `node … -e` within one command (between `;`, `&`, `|`). Word by word, so a script is
+ * read in linear time: a single regex with a repeated word group was quadratic, and a
+ * package could stall analysis with a long script full of `node` words.
+ */
+function runsInlineNode(script: string): boolean {
+  for (const command of script.split(/[;&|]/)) {
+    let afterNode = false;
+    for (const word of command.split(/\s+/)) {
+      if (afterNode && EVAL_FLAG.test(word)) return true;
+      if (NODE_WORD.test(word)) afterNode = true;
+    }
+  }
+  return false;
+}
+
+const NETWORK_PATTERNS: { test: (script: string) => boolean; why: string }[] = [
+  { test: (s) => /(?:^|[\s;&|(`])(?:curl|wget)(?:\.exe)?(?=$|[\s;&|)`])/i.test(s), why: "runs curl/wget" },
+  { test: runsInlineNode, why: "runs inline code with node -e" },
+  { test: (s) => /\b(?:https?|ftp):\/\//i.test(s), why: "contains a URL" },
+  { test: (s) => /\b(?:Invoke-WebRequest|Invoke-RestMethod|iwr|irm|certutil|bitsadmin)\b/i.test(s), why: "runs a Windows download tool" },
 ];
 
 /** Why a script string itself looks network-capable, or `undefined`. */
 export function scriptNetworkReason(script: string): string | undefined {
-  return NETWORK_PATTERNS.find((p) => p.re.test(script))?.why;
+  return NETWORK_PATTERNS.find((p) => p.test(script))?.why;
 }
 
 /** Splits a script into words, dropping shell operators and surrounding quotes. Best-effort. */

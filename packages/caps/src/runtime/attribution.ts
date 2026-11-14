@@ -3,9 +3,32 @@
 // directory's package.json (docs/specs/caps.md § Runtime details).
 // https://nodejs.org/api/util.html#utilgetcallsitesframecount-options (Stability 1.1)
 
-import { fileURLToPath } from "node:url";
-import { getCallSites } from "node:util";
-import { ErrorCaptureStackTrace, SafeMap } from "./intrinsics.ts";
+//
+// Attribution decides who is calling, so it runs while package code may have replaced
+// built-ins: it uses only the captured intrinsics, index loops, and copies of the Node
+// functions taken at load (named imports are live bindings that
+// module.syncBuiltinESMExports() would update after a package patches the module).
+
+import * as nodeUrl from "node:url";
+import * as nodeUtil from "node:util";
+import {
+  DecodeURIComponent,
+  ErrorCaptureStackTrace,
+  JSONParse,
+  ObjectHasOwn,
+  RegExpExec,
+  SafeMap,
+  StringEndsWith,
+  StringIndexOf,
+  StringLastIndexOf,
+  StringSlice,
+  StringStartsWith,
+  StringToLowerCase,
+  toSlashes,
+} from "./intrinsics.ts";
+
+const fileURLToPath: typeof nodeUrl.fileURLToPath = nodeUrl.fileURLToPath;
+const getCallSites: typeof nodeUtil.getCallSites = nodeUtil.getCallSites;
 
 /** A package directory found in a path. */
 export interface PackageRef {
@@ -17,30 +40,42 @@ export interface PackageRef {
 const NM = "/node_modules/";
 
 /** The innermost package of a file path or `file:` URL. `null` for application code. */
+/** The text of `s` from `from` up to the next `/` (or the end). */
+function segment(s: string, from: number): string {
+  const end = StringIndexOf(s, "/", from);
+  return end === -1 ? StringSlice(s, from) : StringSlice(s, from, end);
+}
+
 export function packageOf(location: string): PackageRef | null {
-  const s = location.replaceAll("\\", "/");
-  const i = s.lastIndexOf(NM);
+  const s = toSlashes(location);
+  const i = StringLastIndexOf(s, NM);
   if (i === -1) return null;
-  const parts = s.slice(i + NM.length).split("/");
-  const first = parts[0] ?? "";
-  if (first === "" || first.startsWith(".")) return null;
-  const scoped = first.startsWith("@") || first.toLowerCase().startsWith("%40");
-  const raw = scoped ? `${first}/${parts[1] ?? ""}` : first;
-  if (raw.endsWith("/")) return null;
+  const start = i + NM.length;
+  const first = segment(s, start);
+  if (first === "" || StringStartsWith(first, ".")) return null;
+  const scoped = StringStartsWith(first, "@") || StringStartsWith(StringToLowerCase(first), "%40");
+  const second = scoped && start + first.length < s.length ? segment(s, start + first.length + 1) : "";
+  const raw = scoped ? `${first}/${second}` : first;
+  if (StringEndsWith(raw, "/")) return null;
   let name = raw;
   try {
-    name = decodeURIComponent(raw);
+    name = DecodeURIComponent(raw);
   } catch {
     // Keep the raw segment.
   }
-  return { name, root: s.slice(0, i + NM.length + raw.length) };
+  return { name, root: StringSlice(s, 0, start + raw.length) };
 }
+
+const PAREN_LOCATION = /\((.+):\d+:\d+\)$/;
+const BARE_LOCATION = /^\s*at (?:async )?(.+):\d+:\d+$/;
 
 /** The file location of one line of an `Error.stack`, or `null`. */
 export function stackLineLocation(line: string): string | null {
-  const m = /\((.+):\d+:\d+\)$/.exec(line) ?? /^\s*at (?:async )?(.+):\d+:\d+$/.exec(line);
-  return m?.[1] ?? null;
+  const m = RegExpExec(PAREN_LOCATION, line) ?? RegExpExec(BARE_LOCATION, line);
+  return m === null ? null : (m[1] ?? null);
 }
+
+const PAREN = /\((.+)\)$/;
 
 /** Options for {@link createAttribution}. */
 export interface AttributionOptions {
@@ -71,11 +106,13 @@ export interface Attribution {
 export function createAttribution(opts: AttributionOptions): Attribution {
   const versions = new SafeMap<string, string>();
   // Windows paths and file URLs compare case-insensitively (drive letters vary).
-  const fold = process.platform === "win32" ? (s: string): string => s.replaceAll("\\", "/").toLowerCase() : (s: string): string => s.replaceAll("\\", "/");
+  const fold = process.platform === "win32" ? (s: string): string => StringToLowerCase(toSlashes(s)) : toSlashes;
   const selfRoots = opts.selfRoots.map(fold);
+  const readFile = opts.readFile;
   const isSelf = (location: string): boolean => {
     const s = fold(location);
-    return selfRoots.some((r) => s.startsWith(r));
+    for (let i = 0; i < selfRoots.length; i++) if (StringStartsWith(s, selfRoots[i] as string)) return true;
+    return false;
   };
 
   const keyOf = (location: string): string | null => {
@@ -85,8 +122,9 @@ export function createAttribution(opts: AttributionOptions): Attribution {
     if (key === undefined) {
       let version = "unknown";
       try {
-        const dir = ref.root.startsWith("file:") ? fileURLToPath(`${ref.root}/`) : `${ref.root}/`;
-        const v = (JSON.parse(opts.readFile(`${dir}package.json`)) as { version?: unknown }).version;
+        const dir = StringStartsWith(ref.root, "file:") ? fileURLToPath(`${ref.root}/`) : `${ref.root}/`;
+        const pkg: unknown = JSONParse(readFile(`${dir}package.json`));
+        const v = typeof pkg === "object" && pkg !== null && ObjectHasOwn(pkg, "version") ? (pkg as { version: unknown }).version : undefined;
         if (typeof v === "string" && v !== "") version = v;
       } catch {
         // Unreadable or missing package.json: keep "unknown".
@@ -108,52 +146,48 @@ export function createAttribution(opts: AttributionOptions): Attribution {
 
   const decide = (file: string, skipInternal: boolean): string | null | undefined => {
     if (file === "" || isSelf(file)) return undefined;
-    if (file.startsWith("node:")) return skipInternal ? undefined : null;
+    if (StringStartsWith(file, "node:")) return skipInternal ? undefined : null;
     return keyOf(file);
   };
 
-  const caller = (skipInternal = false): string | null => {
+  /**
+   * Calls `visit(file, location)` for each stack frame, innermost first, until it
+   * returns something other than `undefined`. No arrays are built: their index setters
+   * and methods can be replaced.
+   */
+  const eachFrame = <T>(visit: (file: string, location: string) => T | undefined): T | undefined => {
     if (useCallSites) {
-      for (const site of getCallSites(16, { sourceMap: false })) {
-        const d = decide(site.scriptName, skipInternal);
-        if (d !== undefined) return d;
+      const sites = getCallSites(16, { sourceMap: false });
+      for (let i = 0; i < sites.length; i++) {
+        const s = sites[i] as nodeUtil.CallSiteObject;
+        const r = visit(s.scriptName, `${s.scriptName}:${s.lineNumber}:${s.columnNumber}`);
+        if (r !== undefined) return r;
       }
-      return null;
+      return undefined;
     }
     const holder: { stack?: string } = {};
     const limit = Error.stackTraceLimit;
     Error.stackTraceLimit = 16;
     ErrorCaptureStackTrace(holder);
     Error.stackTraceLimit = limit;
-    for (const line of (holder.stack ?? "").split("\n").slice(1)) {
+    const stack = typeof holder.stack === "string" ? holder.stack : "";
+    // Skip the first line (the message).
+    for (let at = StringIndexOf(stack, "\n"); at !== -1; ) {
+      const next = StringIndexOf(stack, "\n", at + 1);
+      const line = next === -1 ? StringSlice(stack, at + 1) : StringSlice(stack, at + 1, next);
+      at = next;
       const file = stackLineLocation(line);
       if (file === null) continue;
-      const d = decide(file, skipInternal);
-      if (d !== undefined) return d;
+      const r = visit(file, RegExpExec(PAREN, line)?.[1] ?? line);
+      if (r !== undefined) return r;
     }
-    return null;
+    return undefined;
   };
 
-  const site = (): string | null => {
-    if (useCallSites) {
-      for (const s of getCallSites(16, { sourceMap: false })) {
-        if (s.scriptName === "" || s.scriptName.startsWith("node:") || isSelf(s.scriptName)) continue;
-        return `${s.scriptName}:${s.lineNumber}:${s.columnNumber}`;
-      }
-      return null;
-    }
-    const holder: { stack?: string } = {};
-    const limit = Error.stackTraceLimit;
-    Error.stackTraceLimit = 16;
-    ErrorCaptureStackTrace(holder);
-    Error.stackTraceLimit = limit;
-    for (const line of (holder.stack ?? "").split("\n").slice(1)) {
-      const file = stackLineLocation(line);
-      if (file === null || file.startsWith("node:") || isSelf(file)) continue;
-      return /\((.+)\)$/.exec(line)?.[1] ?? line.trim().replace(/^at (?:async )?/, "");
-    }
-    return null;
-  };
+  const caller = (skipInternal = false): string | null => eachFrame((file) => decide(file, skipInternal)) ?? null;
+
+  const site = (): string | null =>
+    eachFrame((file, location) => (file === "" || StringStartsWith(file, "node:") || isSelf(file) ? undefined : location)) ?? null;
 
   return { keyOf, isSelf, caller, site };
 }

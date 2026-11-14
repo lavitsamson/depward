@@ -3,12 +3,15 @@
 
 import type { Attribution } from "./attribution.ts";
 import { capabilityBuiltin } from "./hooks.ts";
-import { ProxyCtor, ReflectApply, ReflectConstruct, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectOwnKeys } from "./intrinsics.ts";
+import { ProxyCtor, ReflectApply, ReflectConstruct, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectOwnKeys, RegExpExec } from "./intrinsics.ts";
 import type { Store, UseRecord } from "./store.ts";
 
-/** Credential-like env keys: the analyzer's `env-sensitive-read` rule. */
+const SECRET_WORD = /TOKEN|SECRET|KEY|PASSWORD/i;
+const VENDOR_PREFIX = /^(?:NPM_|AWS_|GITHUB_|GH_|CI_JOB)/;
+
+/** Credential-like env keys: the analyzer's `env-sensitive-read` rule. Uses the captured RegExp exec. */
 export function isSensitiveEnvKey(key: string): boolean {
-  return /TOKEN|SECRET|KEY|PASSWORD/i.test(key) || /^(?:NPM_|AWS_|GITHUB_|GH_|CI_JOB)/.test(key);
+  return RegExpExec(SECRET_WORD, key) !== null || RegExpExec(VENDOR_PREFIX, key) !== null;
 }
 
 /** What {@link installGlobals} needs. */

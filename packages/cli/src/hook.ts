@@ -79,6 +79,10 @@ async function decide(adapter: HookAdapter, input: string, args: { config?: stri
   }
 
   const budget = rt.hookBudgetMs ?? HOOK_BUDGET_MS;
+  // The timer below can't fire while synchronous analysis runs, so the analyzer also
+  // gets the deadline and stops itself (TIMEOUT → onError). Otherwise a package that is
+  // slow to analyze could keep the hook busy past the agent's own hook timeout.
+  const analyze = { ...rt.gate?.analyze, deadline: Date.now() + budget };
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), budget);
@@ -95,8 +99,9 @@ async function decide(adapter: HookAdapter, input: string, args: { config?: stri
     const analysisCache = rt.gate?.registry ? undefined : cache;
     const gate = {
       ...(analysisCache === undefined ? {} : { analysisCache }),
-      diffUpdate: updateDiff(projectDir, registry, analysisCache, rt.gate ?? {}),
+      diffUpdate: updateDiff(projectDir, registry, analysisCache, { ...rt.gate, analyze }),
       ...rt.gate,
+      analyze,
       registry,
       config,
     };

@@ -27,7 +27,9 @@ export function analysisCacheKey(
 ): string | null {
   const hash = meta.dist.integrity === undefined ? null : strongestHash(meta.dist.integrity);
   if (hash === null) return null;
-  const limits = JSON.stringify({ tar: opts.tarLimits ?? {}, analyze: opts.analyze ?? {} });
+  // The deadline only decides whether an analysis finishes, not what it finds.
+  const { deadline: _deadline, ...analyze } = opts.analyze ?? {};
+  const limits = JSON.stringify({ tar: opts.tarLimits ?? {}, analyze });
   return `analyzer@${analyzer.VERSION}:r${analyzer.ANALYSIS_REVISION}:${hash.algorithm}-${hash.digest}:${limits}`;
 }
 

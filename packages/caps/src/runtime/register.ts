@@ -9,7 +9,7 @@
 // Only node: builtins are imported here, statically, so they load before the hooks
 // exist and are the real modules.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import * as nodeFs from "node:fs";
 import * as nodeModule from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -17,7 +17,15 @@ import { isMainThread } from "node:worker_threads";
 import { createAttribution } from "./attribution.ts";
 import { installGlobals } from "./globals.ts";
 import { BUILTIN_CAPS, REGISTRY_KEY, createHooks } from "./hooks.ts";
-import { ReflectApply } from "./intrinsics.ts";
+import { ObjectHasOwn, ObjectKeys, ReflectApply } from "./intrinsics.ts";
+
+// Copies, not live bindings: a package that patches the real fs (through its wrapper's
+// `set`) and calls module.syncBuiltinESMExports() would otherwise change what the
+// runtime reads (package versions, the observed file).
+const readFileSync: typeof nodeFs.readFileSync = nodeFs.readFileSync;
+const writeFileSync: typeof nodeFs.writeFileSync = nodeFs.writeFileSync;
+const renameSync: typeof nodeFs.renameSync = nodeFs.renameSync;
+const mkdirSync: typeof nodeFs.mkdirSync = nodeFs.mkdirSync;
 import { DepwardCapabilityError } from "./errors.ts";
 import { DEFAULT_OBSERVED_PATH } from "./paths.ts";
 import { parsePolicy, type RuntimePolicy } from "./policy.ts";
@@ -83,7 +91,7 @@ function install(): void {
 
   const getBuiltin = process.getBuiltinModule;
   const real = (name: string): object => ReflectApply(getBuiltin, process, [`node:${name}`]) as object;
-  const moduleFor = (name: string, key: string): object => wrapper.wrapModule(real(name), name, BUILTIN_CAPS[name] ?? name, key);
+  const moduleFor = (name: string, key: string): object => wrapper.wrapModule(real(name), name, ObjectHasOwn(BUILTIN_CAPS, name) ? (BUILTIN_CAPS[name] as string) : name, key);
 
   // Live ESM bindings: generated modules register a refresher; it runs whenever the
   // application calls module.syncBuiltinESMExports().
@@ -104,7 +112,7 @@ function install(): void {
   registerHooks(
     createHooks({
       importer: (parentURL) => (attribution.isSelf(parentURL) ? null : attribution.keyOf(parentURL)),
-      exportNames: (name) => Object.keys(real(name)),
+      exportNames: (name) => ObjectKeys(real(name)),
     }),
   );
   installGlobals({ attribution, store, use, moduleFor, envAll });

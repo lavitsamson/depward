@@ -45,6 +45,7 @@ const LABEL: Record<string, string> = {
   "diff-provenance-dropped": "provenance dropped",
   "diff-semver-mismatch": "semver mismatch",
   "lockfile-integrity-mismatch": "integrity mismatch",
+  "lockfile-untrusted-source": "untrusted source",
   "non-registry-source": "non-registry source",
   denylisted: "deny-listed",
 };

@@ -63,6 +63,13 @@ describe("checkCommand", () => {
     expect(d.reasons).toEqual([]);
   });
 
+  test("a clean package from an overridden registry is asked about, not allowed", async () => {
+    const d = await checkCommand("npm install depward-fixture-stable --registry=https://r.example.invalid", opts());
+    expect(summary(d)).toEqual({ action: "ask", packages: [["depward-fixture-stable@2.0.0", "allow", []]] });
+    expect(d.findings.map((x) => [x.finding.id, x.action])).toEqual([["registry-override", "ask"]]);
+    expect(d.reasons[0]).toMatch(/^ask registry-override — /);
+  });
+
   test("a known hallucinated name is denied, with the real name suggested", async () => {
     const registry = fixtures();
     const d = await checkCommand("npm i depward-fixture-hallucinated", opts({ registry }));

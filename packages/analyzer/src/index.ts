@@ -6,7 +6,7 @@ export const VERSION: string = "0.0.0";
  * together with {@link VERSION}, so bump it in any change that can alter a profile (a
  * rule, a severity, a classifier), even between releases.
  */
-export const ANALYSIS_REVISION: number = 1;
+export const ANALYSIS_REVISION: number = 2;
 
 export { analyzePackage } from "./analyze.ts";
 export { binaryFormat, classifyFile, looksBundled, looksMinified, type Classification } from "./classify.ts";

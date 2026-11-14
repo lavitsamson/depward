@@ -115,6 +115,56 @@ describe("diffLockfile", () => {
     expect(finding?.evidence.map((e) => e.detail)).toEqual(["lockfile integrity", "registry integrity", "lockfile resolved URL"]);
   });
 
+  test("a tarball from another host that the registry's hash can't vouch for is critical", async () => {
+    const reg = registry();
+    await commitLock(npmLock(reg, { "fx-keep": { version: "1.0.0" } }));
+    // sha256 only: the registry publishes sha512 and sha1, so nothing can be compared.
+    const sha256 = `sha256-${Buffer.alloc(32, 7).toString("base64")}`;
+    await writeFile(join(repo, "package-lock.json"), npmLock(reg, {
+      "fx-keep": { version: "1.0.0" },
+      "fx-old": { version: "3.0.0", integrity: sha256, resolved: "https://cdn.example.invalid/fx-old/-/fx-old-3.0.0.tgz" },
+    }));
+    const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW });
+    expect(summary(report)).toEqual(["added fx-old 3.0.0 critical"]);
+    const finding = report.findings.find((f) => f.id === "lockfile-untrusted-source");
+    expect(finding).toMatchObject({ severity: "critical", package: "fx-old", version: "3.0.0" });
+    expect(finding?.evidence.map((e) => e.detail)).toEqual(["lockfile resolved URL", "lockfile integrity", "registry integrity"]);
+  });
+
+  test("a same-version entry that drops its integrity and moves to another host is re-checked", async () => {
+    const reg = registry();
+    await commitLock(npmLock(reg, { "fx-keep": { version: "1.0.0" } }));
+    const head = JSON.parse(npmLock(reg, { "fx-keep": { version: "1.0.0", resolved: "https://cdn.example.invalid/fx-keep/-/fx-keep-1.0.0.tgz" } })) as { packages: Record<string, Record<string, unknown>> };
+    delete head.packages["node_modules/fx-keep"]?.["integrity"];
+    await writeFile(join(repo, "package-lock.json"), JSON.stringify(head));
+    const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW });
+    expect(summary(report)).toEqual(["changed fx-keep 1.0.0 critical"]);
+    expect(report.findings.find((f) => f.id === "lockfile-untrusted-source")?.evidence.map((e) => e.detail)).toEqual(["lockfile resolved URL", "registry integrity"]);
+  });
+
+  test("a same-version entry that keeps its integrity and moves host is not re-checked", async () => {
+    // The package manager verifies the unchanged hash, so the bytes can't change.
+    const reg = registry();
+    const sha256 = `sha256-${Buffer.alloc(32, 9).toString("base64")}`;
+    await commitLock(npmLock(reg, { "fx-keep": { version: "1.0.0", integrity: sha256 } }));
+    await writeFile(join(repo, "package-lock.json"), npmLock(reg, { "fx-keep": { version: "1.0.0", integrity: sha256, resolved: "https://cdn.example.invalid/fx-keep/-/fx-keep-1.0.0.tgz" } }));
+    const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW });
+    expect(summary(report)).toEqual([]);
+  });
+
+  test("a mirror whose integrity matches the registry, or a registry URL with an odd hash, is not flagged", async () => {
+    const reg = registry();
+    await commitLock(npmLock(reg, { "fx-keep": { version: "1.0.0" } }));
+    const sha256 = `sha256-${Buffer.alloc(32, 7).toString("base64")}`;
+    await writeFile(join(repo, "package-lock.json"), npmLock(reg, {
+      "fx-keep": { version: "1.0.0" },
+      "fx-old": { version: "3.0.0", resolved: "https://mirror.example.invalid/fx-old/-/fx-old-3.0.0.tgz" },
+      "fx-b": { version: "2.0.0", integrity: sha256, resolved: "https://registry.yarnpkg.com/fx-b/-/fx-b-2.0.0.tgz" },
+    }));
+    const report = await diffLockfile({ cwd: repo, base: "HEAD", registry: reg.client, data, now: () => NOW });
+    expect(report.findings.map((f) => f.id)).not.toContain("lockfile-untrusted-source");
+  });
+
   test("a changed integrity for the same version is re-checked; a dev flag change is not", async () => {
     const reg = registry();
     await commitLock(npmLock(reg, { "fx-keep": { version: "1.0.0", integrity: "sha512-AAAA" }, "fx-old": { version: "3.0.0" } }));

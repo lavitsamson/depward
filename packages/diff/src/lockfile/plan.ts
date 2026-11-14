@@ -80,10 +80,19 @@ export function planLockfile(diff: LockfileDiff): LockfilePlan {
   }
 
   for (const { before, after } of diff.changed) {
-    if (after.source === before.source && (after.integrity === null || before.integrity === null || after.integrity === before.integrity)) continue;
+    if (after.source === before.source && !contentMayDiffer(before, after)) continue;
     route(plan, { kind: "changed", entry: after });
   }
   return plan;
+}
+
+/**
+ * Whether a same-name@version change can install different bytes: the integrity changed,
+ * or `resolved` moved while one side has no integrity to pin the content.
+ */
+function contentMayDiffer(a: LockfileEntry, b: LockfileEntry): boolean {
+  if (a.integrity !== null && b.integrity !== null) return a.integrity !== b.integrity;
+  return a.resolved !== null && b.resolved !== null && a.resolved !== b.resolved;
 }
 
 function route(plan: LockfilePlan, check: PlannedCheck): void {
