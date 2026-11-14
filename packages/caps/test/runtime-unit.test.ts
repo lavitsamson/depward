@@ -8,6 +8,8 @@ import { isSensitiveEnvKey } from "../src/runtime/globals.ts";
 import { capabilityBuiltin, capsUrl, createHooks, generatedSource, parseCapsUrl } from "../src/runtime/hooks.ts";
 import { createStore, mergeObserved, parseObserved, writeObserved, type ObservedFile } from "../src/runtime/store.ts";
 import { createWrapper } from "../src/runtime/wrap.ts";
+import { DepwardCapabilityError } from "../src/runtime/errors.ts";
+import { parsePolicy } from "../src/runtime/policy.ts";
 
 const next = (s: string) => ({ url: `next:${s}` });
 const exists = () => true;
@@ -198,5 +200,44 @@ describe("observed file", () => {
     expect(parseObserved(disk.get("/o.json") ?? "")?.packages["x@1.0.0"]?.["fs"]?.count).toBe(3);
     writeObserved("/empty.json", "/", { version: 1, packages: {} }, io);
     expect(disk.has("/empty.json")).toBe(false);
+  });
+});
+
+describe("enforce policy", () => {
+  const policy = parsePolicy(
+    JSON.stringify({
+      version: 1,
+      packages: { "a@1.0.0": { capabilities: ["fs"] }, "a@1.10.0": { capabilities: ["net"] }, "a@1.9.0": { capabilities: ["env"] }, "b@1.0.0": { capabilities: [] } },
+    }),
+    "caps.json",
+  );
+
+  test("exact entry, else the highest version of the name; unknown packages get nothing", () => {
+    expect(policy.allows("a@1.0.0", "fs")).toBe(true);
+    expect(policy.allows("a@1.0.0", "net")).toBe(false);
+    expect(policy.allows("a@2.0.0", "net")).toBe(true);
+    expect(policy.allows("a@unknown", "net")).toBe(true);
+    expect(policy.allows("b@1.0.0", "fs")).toBe(false);
+    expect(policy.allows("c@1.0.0", "fs")).toBe(false);
+  });
+
+  test.each(["{", '{"version":2,"packages":{}}', '{"version":1,"packages":{"a":{"capabilities":[]}}}', '{"version":1,"packages":{"a@1.0.0":{"capabilities":[1]}}}'])("rejects %s", (text) => {
+    expect(() => parsePolicy(text, "caps.json")).toThrow(expect.objectContaining({ name: "DepwardCapabilityError", code: "CAPS_POLICY" }));
+  });
+});
+
+describe("DepwardCapabilityError", () => {
+  test("names the package, capability, member and call site, with an approval hint", () => {
+    const e = DepwardCapabilityError.denied({ package: "@s/x@1.2.3", capability: "net", member: "globalThis.fetch", callSite: "file:///app/node_modules/@s/x/i.js:4:2" });
+    expect(e.code).toBe("CAPS_DENIED");
+    expect(e.message).toBe(
+      'package @s/x@1.2.3 used capability "net" (globalThis.fetch) at file:///app/node_modules/@s/x/i.js:4:2, which capabilities.lock.json does not approve. If it is expected: depward caps approve @s/x --cap net --reason "..."',
+    );
+    expect(e).toBeInstanceOf(Error);
+  });
+
+  test("strips control characters from untrusted names", () => {
+    const e = DepwardCapabilityError.denied({ package: "\u001b[31mevil@1.0.0", capability: "fs", member: "fs.readFileSync", callSite: null });
+    expect([...e.message].some((ch) => (ch.codePointAt(0) ?? 0) < 0x20)).toBe(false);
   });
 });

@@ -128,7 +128,8 @@ depward caps approve some-package --reason "spawns its bundled binary"
 `approve` analyzes the locked versions of a package (or the one version you name) and
 records their capabilities with who approved them (`--by`, else `git config
 user.name`), the date, and `--reason`. With `--cap`, only those capabilities are
-approved on top of what the package already had.
+approved on top of what the package already had. A `--cap` doesn't have to be detected
+statically, so you can approve a use that runtime enforcement reported.
 
 `depward caps compare [--observed .depward/caps-observed.json]` checks what
 `node --import @depward/caps/register` saw at runtime against the same file

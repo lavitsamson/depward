@@ -192,6 +192,20 @@ Windows 11 x64, Node 24.21.0.
 | Startup + 1 request, register from `dist/` (15 runs) | 683 ms | 699 ms | +16 ms |
 | Startup + 1 request, register from source (`bench:caps`) | 691 ms | 744 ms | +53 ms (type stripping) |
 
+**Enforce mode (M4.4).** `pnpm bench:caps` gained an `enforce` mode, in which every
+capability the fixture uses is approved:
+
+| Run | baseline req/s | observe | enforce |
+|---|---|---|---|
+| 5 rounds | 9,165 | 8,314 (−9.3%) | 9,123 (−0.5%) |
+| 7 rounds | 9,287 | 9,019 (−2.9%) | 9,413 (+1.4%) |
+
+Enforce does exactly what observe does plus one boolean check per call. Its decision is
+cached per package and capability. So the difference between the two columns is
+machine noise; the 5-round observe figure was a load spike. The 7-round run, and the
+earlier M4.3 run (1.9%), are representative. Startup with the register from source was
+681 / 757 / 754 ms.
+
 **Result:** under the Phase 4 target of 5% on a request benchmark. Attribution on the
 same app is checked by `packages/caps/test/runtime.test.ts`: 30 requests give exactly
 the expected per-package counts.

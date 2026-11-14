@@ -36,10 +36,13 @@ describe("helpers", () => {
     expect(capabilitiesOf({ capabilities: caps } as Parameters<typeof capabilitiesOf>[0])).toEqual(["env", "fs"]);
   });
 
-  test("baselineEntry keeps an approval only for the same capability set", () => {
+  test("baselineEntry keeps an approval that covers every detected capability", () => {
     const existing = { capabilities: ["net", "fs"], approvedBy: "alice", approvedAt: "2026-01-01", reason: "ok" };
     expect(baselineEntry(["fs", "net"], existing, "2026-11-13")).toEqual({ entry: { ...existing, capabilities: ["fs", "net"] }, kept: true });
-    expect(baselineEntry(["fs"], existing, "2026-11-13")).toEqual({ entry: { capabilities: ["fs"], approvedBy: "static", approvedAt: "2026-11-13" }, kept: false });
+    // Extra approvals (for example runtime-only, via caps approve --cap) survive.
+    expect(baselineEntry(["fs"], existing, "2026-11-13")).toEqual({ entry: { ...existing, capabilities: ["fs", "net"] }, kept: true });
+    // A newly detected capability re-baselines, keeping the earlier approvals in the set.
+    expect(baselineEntry(["env", "fs"], existing, "2026-11-13")).toEqual({ entry: { capabilities: ["env", "fs", "net"], approvedBy: "static", approvedAt: "2026-11-13" }, kept: false });
     expect(baselineEntry([], undefined, "2026-11-13")).toEqual({ entry: { capabilities: [] }, kept: false });
   });
 });

@@ -3,7 +3,7 @@
 // network use is fetch of data: URLs and a server on 127.0.0.1.
 
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -95,10 +95,58 @@ describe("observe mode", () => {
     expect(o.packages["orm-client@1.0.0"]?.["env"]?.members).toEqual(expect.arrayContaining(["process.env.DATABASE_URL", "process.env.PRISMA_API_KEY"]));
   }, 60_000);
 
-  test("an unsupported mode warns and observes", async () => {
-    const r = await runApp("server.mjs", ["3"], { DEPWARD_CAPS_MODE: "enforce" });
+  test("an unknown mode warns and observes", async () => {
+    const r = await runApp("server.mjs", ["3"], { DEPWARD_CAPS_MODE: "strict" });
     expect(r.code).toBe(0);
-    expect(r.stderr).toContain("DEPWARD_CAPS_MODE=enforce is not supported yet");
+    expect(r.stderr).toContain("unknown DEPWARD_CAPS_MODE=strict");
     expect(Object.keys((await observed()).packages)).toContain("orm-client@1.0.0");
+  }, 60_000);
+});
+
+/** Writes `dir/capabilities.lock.json` approving `packages`. */
+function lockfile(packages: Record<string, string[]>): Promise<void> {
+  return writeFile(join(dir, "capabilities.lock.json"), JSON.stringify({ version: 1, packages: Object.fromEntries(Object.entries(packages).map(([k, caps]) => [k, { capabilities: caps }])) }));
+}
+
+describe("enforce mode", () => {
+  const SERVER_CAPS = { "orm-client@1.0.0": ["crypto", "env", "fs"], "web-framework@1.0.0": ["fs", "net"], "etag-lite@1.0.0": ["crypto"] };
+
+  test("approved uses run; an unapproved use throws DepwardCapabilityError naming package, capability and call site", async () => {
+    await lockfile(SERVER_CAPS);
+    const r = await runApp("enforce.mjs", [], { DEPWARD_CAPS_MODE: "enforce" });
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout) as Record<string, { ok?: unknown; error?: string; code?: string; denied?: { package: string; capability: string; member: string; callSite: string | null } }>;
+    expect(out["approved"]).toEqual({ ok: 2 });
+    expect(out["importOnly"]).toEqual({ ok: "function" }); // importing is never denied
+    expect(out["denied"]).toMatchObject({ error: "DepwardCapabilityError", code: "CAPS_DENIED", denied: { package: "esm-logger@1.0.0", capability: "os_info", member: "os.hostname" } });
+    expect(out["denied"]?.denied?.callSite).toMatch(/node_modules[/\\]esm-logger[/\\]index\.js:\d+:\d+$/);
+    expect(out["afterDenial"]).toEqual({ ok: "function" });
+    expect(out["fetchDenied"]?.denied).toMatchObject({ package: "fetch-client@1.0.0", capability: "net", member: "globalThis.fetch" });
+    expect(out["envDenied"]?.denied).toMatchObject({ package: "fetch-client@1.0.0", capability: "env", member: "process.env.SPIKE_TOKEN" });
+    expect(out["app"]).toEqual({ ok: true }); // application code is never restricted
+  }, 60_000);
+
+  test("the Express + Prisma-like app runs when its capabilities are approved, and fails when one isn't", async () => {
+    await lockfile(SERVER_CAPS);
+    expect((await runApp("server.mjs", ["9"], { DEPWARD_CAPS_MODE: "enforce" })).code).toBe(0);
+    await lockfile({ ...SERVER_CAPS, "orm-client@1.0.0": ["crypto", "env"] });
+    const denied = await runApp("server.mjs", ["9"], { DEPWARD_CAPS_MODE: "enforce" });
+    expect(denied.code).not.toBe(0);
+    expect(denied.stderr).toContain("orm-client@1.0.0 used capability");
+  }, 60_000);
+
+  test("without an exact entry, the highest approved version of the name is the reference", async () => {
+    await lockfile({ "orm-client@0.9.0": ["crypto", "env", "fs"], "web-framework@1.0.0": ["fs", "net"], "etag-lite@1.0.0": ["crypto"] });
+    expect((await runApp("server.mjs", ["3"], { DEPWARD_CAPS_MODE: "enforce" })).code).toBe(0);
+  }, 60_000);
+
+  test("fails closed at startup when the capability lockfile is missing or invalid", async () => {
+    const missing = await runApp("server.mjs", ["1"], { DEPWARD_CAPS_MODE: "enforce" });
+    expect(missing.code).not.toBe(0);
+    expect(missing.stderr).toContain("enforce mode needs a capability lockfile");
+    await writeFile(join(dir, "caps.json"), '{"version":2}');
+    const invalid = await runApp("server.mjs", ["1"], { DEPWARD_CAPS_MODE: "enforce", DEPWARD_CAPS_LOCKFILE: "caps.json" });
+    expect(invalid.code).not.toBe(0);
+    expect(invalid.stderr).toContain("not a version 1 capability lockfile");
   }, 60_000);
 });

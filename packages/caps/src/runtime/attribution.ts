@@ -63,6 +63,8 @@ export interface Attribution {
    * `process.dlopen`, which Node's loader calls on a package's behalf).
    */
   caller(skipInternal?: boolean): string | null;
+  /** `file:line:column` of the first stack frame outside the caps package and Node, or `null`. */
+  site(): string | null;
 }
 
 /** Creates the attribution used by the hooks and the global wrappers. */
@@ -132,5 +134,26 @@ export function createAttribution(opts: AttributionOptions): Attribution {
     return null;
   };
 
-  return { keyOf, isSelf, caller };
+  const site = (): string | null => {
+    if (useCallSites) {
+      for (const s of getCallSites(16, { sourceMap: false })) {
+        if (s.scriptName === "" || s.scriptName.startsWith("node:") || isSelf(s.scriptName)) continue;
+        return `${s.scriptName}:${s.lineNumber}:${s.columnNumber}`;
+      }
+      return null;
+    }
+    const holder: { stack?: string } = {};
+    const limit = Error.stackTraceLimit;
+    Error.stackTraceLimit = 16;
+    ErrorCaptureStackTrace(holder);
+    Error.stackTraceLimit = limit;
+    for (const line of (holder.stack ?? "").split("\n").slice(1)) {
+      const file = stackLineLocation(line);
+      if (file === null || file.startsWith("node:") || isSelf(file)) continue;
+      return /\((.+)\)$/.exec(line)?.[1] ?? line.trim().replace(/^at (?:async )?/, "");
+    }
+    return null;
+  };
+
+  return { keyOf, isSelf, caller, site };
 }

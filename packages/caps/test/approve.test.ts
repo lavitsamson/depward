@@ -48,7 +48,7 @@ describe("approveCapabilities", () => {
     await lock(reg, { "fx-net": "2.0.0", "fx-files": "1.0.0" });
     const r = await approve(reg, { caps: OLD, targets: [{ name: "fx-net" }], reason: "spawns its helper binary" });
     expect(r.errors).toEqual([]);
-    expect(r.approved).toEqual([{ key: "fx-net@2.0.0", capabilities: ["child_process", "net"], unapproved: [] }]);
+    expect(r.approved).toEqual([{ key: "fx-net@2.0.0", capabilities: ["child_process", "net"], unapproved: [], notDetected: [] }]);
     expect(r.lockfile.packages).toEqual({
       ...OLD.packages,
       "fx-net@2.0.0": { capabilities: ["child_process", "net"], approvedBy: "alice", approvedAt: "2026-11-13", reason: "spawns its helper binary" },
@@ -61,16 +61,17 @@ describe("approveCapabilities", () => {
     const reg = registry();
     await lock(reg, { "fx-net": "2.0.0" });
     const r = await approve(reg, { caps: { version: 1, packages: {} }, targets: [{ name: "fx-net", version: "2.0.0" }], capabilities: ["net"] });
-    expect(r.approved).toEqual([{ key: "fx-net@2.0.0", capabilities: ["net"], unapproved: ["child_process"] }]);
+    expect(r.approved).toEqual([{ key: "fx-net@2.0.0", capabilities: ["net"], unapproved: ["child_process"], notDetected: [] }]);
     const withRef = await approve(reg, { caps: OLD, targets: [{ name: "fx-net" }], capabilities: ["child_process"] });
     expect(withRef.approved[0]?.capabilities).toEqual(["child_process", "net"]);
   });
 
-  test("a capability the version doesn't use is an error; an unknown one throws", async () => {
+  test("--cap may approve a capability static analysis doesn't see (for runtime enforcement); an unknown name throws", async () => {
     const reg = registry();
     await lock(reg, { "fx-files": "1.0.0" });
     const r = await approve(reg, { targets: [{ name: "fx-files" }], capabilities: ["net"] });
-    expect(r.errors.map((e) => [e.code, e.message])).toEqual([["INVALID_ARGUMENT", "fx-files@1.0.0 does not use net (it uses fs)"]]);
+    expect(r.errors).toEqual([]);
+    expect(r.approved).toEqual([{ key: "fx-files@1.0.0", capabilities: ["net"], unapproved: ["fs"], notDetected: ["net"] }]);
     await expect(approve(reg, { targets: [{ name: "fx-files" }], capabilities: ["network"] })).rejects.toSatisfy(
       (e) => isDepwardError(e, "INVALID_ARGUMENT") && e.message.startsWith('unknown capability "network"'),
     );

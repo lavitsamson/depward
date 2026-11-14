@@ -211,3 +211,16 @@ Decision are done: captured intrinsics, live ESM bindings through
   consistent with "not a sandbox".
 - Measured on the fixture server: 1.9% request overhead, and +16 ms startup from `dist/`
   (`docs/benchmarks.md` § Phase 4).
+
+## Enforce mode (M4.4, 2026-11-13)
+
+Enforce mode reuses the observe machinery. Each use record gets an `allowed` flag,
+decided once per (package, capability) from `capabilities.lock.json` (the same reference
+rule as `caps check`), so approved calls cost the same as in observe mode. A denial
+captures the call site and throws `DepwardCapabilityError` before the real function runs.
+The policy fails closed at startup.
+
+Enforcement can see uses static analysis misses. So `caps approve --cap` now accepts any
+known capability, and a re-scan keeps approvals that cover the detected set
+(`docs/specs/caps.md` § Enforce details). Request overhead measured within noise of
+observe mode (`docs/benchmarks.md` § Phase 4).

@@ -22,7 +22,10 @@ export interface ApproveOptions extends Omit<ScanOptions, "existing" | "maxPacka
   /** The current capability lockfile, or `null` to start a new one. */
   caps: CapsLockfile | null;
   targets: ApproveTarget[];
-  /** Approve only these capabilities (plus what the reference entry lists). Default: all used. */
+  /**
+   * Approve only these capabilities (plus those of the reference entry the version still
+   * uses). They needn't be detected statically. Default: every capability the version uses.
+   */
   capabilities?: string[];
   /** Recorded as `approvedBy`. */
   by: string;
@@ -37,6 +40,11 @@ export interface ApprovedEntry {
   capabilities: string[];
   /** Capabilities the version uses that stay unapproved (only with `capabilities`). */
   unapproved: string[];
+  /**
+   * Approved capabilities that static analysis doesn't see in the version. Runtime
+   * enforcement can still observe them (dynamic `require`, computed property names).
+   */
+  notDetected: string[];
 }
 
 /** Result of {@link approveCapabilities}. Write `lockfile` only when `errors` is empty. */
@@ -96,20 +104,17 @@ export async function approveCapabilities(opts: ApproveOptions): Promise<Approve
     }
     let caps = a.capabilities;
     if (opts.capabilities !== undefined) {
-      const missing = opts.capabilities.filter((c) => !a.capabilities.includes(c));
-      if (missing.length > 0) {
-        errors.push(new DepwardError("INVALID_ARGUMENT", `${key} does not use ${missing.join(", ")} (it uses ${a.capabilities.join(", ") || "no capabilities"})`));
-        return;
-      }
-      const allowed = new Set([...(reference(entry.name, entry.version)?.entry.capabilities ?? []), ...opts.capabilities]);
-      caps = a.capabilities.filter((c) => allowed.has(c));
+      // The reference entry's capabilities that the version still uses, plus the named
+      // ones, even ones static analysis doesn't see (runtime enforcement may).
+      const fromReference = (reference(entry.name, entry.version)?.entry.capabilities ?? []).filter((c) => a.capabilities.includes(c));
+      caps = [...new Set([...fromReference, ...opts.capabilities])].toSorted();
     }
     packages[key] = {
       capabilities: caps,
       ...(caps.length === 0 ? {} : { approvedBy: opts.by, approvedAt: today }),
       ...(opts.reason === undefined ? {} : { reason: opts.reason }),
     };
-    approved.push({ key, capabilities: caps, unapproved: a.capabilities.filter((c) => !caps.includes(c)) });
+    approved.push({ key, capabilities: caps, unapproved: a.capabilities.filter((c) => !caps.includes(c)), notDetected: caps.filter((c) => !a.capabilities.includes(c)) });
   });
 
   return { lockfile: { version: CAPS_LOCKFILE_VERSION, packages }, approved, errors };

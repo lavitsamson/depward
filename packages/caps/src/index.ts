@@ -49,3 +49,4 @@ export {
   type ObservedUse,
 } from "./runtime/store.ts";
 export { DEFAULT_OBSERVED_PATH } from "./runtime/paths.ts";
+export { DepwardCapabilityError, type CapabilityErrorCode, type DeniedUse } from "./runtime/errors.ts";

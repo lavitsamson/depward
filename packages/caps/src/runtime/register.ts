@@ -1,5 +1,6 @@
-// `node --import @depward/caps/register app.js`: attribute capability use to packages.
-// Spec: docs/specs/caps.md § Runtime details; design: docs/adr/0007-caps-runtime-hooks.md.
+// `node --import @depward/caps/register app.js`: attribute capability use to packages
+// (observe), or refuse uses that capabilities.lock.json doesn't approve (enforce).
+// Spec: docs/specs/caps.md § Runtime details, § Enforce details; design: ADR 0007.
 //
 // This is defense in depth, NOT a sandbox: code in the same process can bypass it (for
 // example through process.binding, Module._load, native addons, or real module objects
@@ -17,13 +18,31 @@ import { createAttribution } from "./attribution.ts";
 import { installGlobals } from "./globals.ts";
 import { BUILTIN_CAPS, REGISTRY_KEY, createHooks } from "./hooks.ts";
 import { ReflectApply } from "./intrinsics.ts";
+import { DepwardCapabilityError } from "./errors.ts";
+import { DEFAULT_OBSERVED_PATH } from "./paths.ts";
+import { parsePolicy, type RuntimePolicy } from "./policy.ts";
 import { createStore, writeObserved, type UseRecord } from "./store.ts";
 import { createWrapper } from "./wrap.ts";
-import { DEFAULT_OBSERVED_PATH } from "./paths.ts";
 
+/** Default capability lockfile for enforce mode, relative to the working directory. */
+const DEFAULT_POLICY_PATH = "capabilities.lock.json";
+
+/**
+ * Enforce mode's policy. Fails closed: a missing or invalid capability lockfile throws
+ * at startup, so the application never runs unprotected by accident.
+ */
+function loadPolicy(path: string): RuntimePolicy {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    throw new DepwardCapabilityError("CAPS_POLICY", `enforce mode needs a capability lockfile, and ${path} can't be read (create it with "depward caps scan", or set DEPWARD_CAPS_LOCKFILE)`);
+  }
+  return parsePolicy(text, path);
+}
 
 /** Observe mode: count the use. */
-function use(record: UseRecord): void {
+function countUse(record: UseRecord): void {
   record.count++;
 }
 
@@ -34,10 +53,12 @@ function install(): void {
     return;
   }
   const env = process.env;
-  const mode = env["DEPWARD_CAPS_MODE"];
-  if (mode !== undefined && mode !== "" && mode !== "observe") {
-    process.emitWarning(`DEPWARD_CAPS_MODE=${mode} is not supported yet (enforce arrives in M4.4); observing instead`, { code: "DEPWARD_CAPS_MODE" });
+  const mode = env["DEPWARD_CAPS_MODE"] ?? "";
+  const enforce = mode === "enforce";
+  if (!enforce && mode !== "" && mode !== "observe") {
+    process.emitWarning(`unknown DEPWARD_CAPS_MODE=${mode} (use observe or enforce); observing`, { code: "DEPWARD_CAPS_MODE" });
   }
+  const policy = enforce ? loadPolicy(resolve(process.cwd(), env["DEPWARD_CAPS_LOCKFILE"] || DEFAULT_POLICY_PATH)) : null;
   const outPath = resolve(process.cwd(), env["DEPWARD_CAPS_OUT"] || DEFAULT_OBSERVED_PATH);
   const envAll = env["DEPWARD_CAPS_ENV"] === "all";
 
@@ -48,7 +69,16 @@ function install(): void {
     selfRoots: [`${pathToFileURL(root).href}/`, `${root.replaceAll("\\", "/")}/`],
     readFile: (path) => readFileSync(path, "utf8"),
   });
-  const store = createStore();
+  const store = createStore(policy === null ? undefined : (key, cap) => policy.allows(key, cap));
+  // Enforce: the decision was made when the record was created; denial costs a stack
+  // capture for the call site, approval costs nothing extra.
+  const use =
+    policy === null
+      ? countUse
+      : (record: UseRecord): void => {
+          record.count++;
+          if (!record.allowed) throw DepwardCapabilityError.denied({ package: record.key, capability: record.cap, member: record.member, callSite: attribution.site() });
+        };
   const wrapper = createWrapper({ store, use });
 
   const getBuiltin = process.getBuiltinModule;
