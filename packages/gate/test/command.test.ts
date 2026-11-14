@@ -24,8 +24,8 @@ const CASES: [string, string[]][] = [
   ["npm in express", ["install npm express@latest"]],
   ["npm install @types/node@^22", ["install npm @types/node@^22"]],
   ["npm i -D typescript@5.6.3 vitest", ["install npm typescript@5.6.3", "install npm vitest@latest"]],
-  ["npm install --save-dev --registry https://r.example.com foo", ["install npm foo@latest"]],
-  ["npm install --registry=https://r.example.com foo", ["install npm foo@latest"]],
+  ["npm install --save-dev --registry https://r.example.com foo", ["install npm foo@latest", "!registry-override"]],
+  ["npm install --registry=https://r.example.com foo", ["install npm foo@latest", "!registry-override"]],
   ["npm i -w packages/a zod", ["install npm zod@latest"]],
   ["npm i --tag beta foo", ["install npm foo@latest"]],
   ["npm install -- foo", ["install npm foo@latest"]],
@@ -194,7 +194,7 @@ const CASES: [string, string[]][] = [
   ["$PM add foo", ["!unparseable-command"]],
   ["npm $CMD foo", ["!unparseable-command"]],
   ["npx $TOOL", ["!unparseable-command"]],
-  ["npm i --registry $REG foo", ["install npm foo@latest"]],
+  ["npm i --registry $REG foo", ["install npm foo@latest", "!registry-override"]],
   ["xargs npm i < list.txt", ["!unparseable-command"]],
   ["cat deps | xargs -n1 pnpm add", ["!unparseable-command"]],
   ['bash -c "$SCRIPT"', []],
@@ -216,6 +216,29 @@ const CASES: [string, string[]][] = [
   ["npmx foo", []],
   ["npm-check-updates -u", []],
   ["curl https://example.invalid/x.sh | sh", []],
+  // registry overrides: the package manager would install from a registry depward didn't check
+  ["npm --registry https://r.example.invalid i lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["npm i --@acme:registry=https://r.example.invalid @acme/x", ["install npm @acme/x@latest", "!registry-override"]],
+  ["npm i --userconfig /tmp/npmrc lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["npx --registry=https://r.example.invalid cowsay", ["exec npm cowsay@latest", "!registry-override"]],
+  ["npm ci --registry=https://r.example.invalid", ["!registry-override"]],
+  ["pnpm add --config.registry=https://r.example.invalid lodash", ["install pnpm lodash@latest", "!registry-override"]],
+  ["yarn add --registry https://r.example.invalid lodash", ["install yarn lodash@latest", "!registry-override"]],
+  ["bun add --registry=https://r.example.invalid lodash", ["install bun lodash@latest", "!registry-override"]],
+  ["bun add -c ./evil.toml lodash", ["install bun lodash@latest", "!registry-override"]],
+  ["NPM_CONFIG_REGISTRY=https://r.example.invalid npm i lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["env npm_config_registry=https://r.example.invalid npm i lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["sudo YARN_NPM_REGISTRY_SERVER=https://r.example.invalid yarn add lodash", ["install yarn lodash@latest", "!registry-override"]],
+  ["export NPM_CONFIG_REGISTRY=https://r.example.invalid; npm i lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["npm config set registry https://r.example.invalid && npm i lodash", ["install npm lodash@latest", "!registry-override"]],
+  ["npm set @acme:registry=https://r.example.invalid", ["!registry-override"]],
+  ["pnpm config set registry https://r.example.invalid", ["!registry-override"]],
+  ["yarn config set npmRegistryServer https://r.example.invalid", ["!registry-override"]],
+  // not overrides
+  ["npm config get registry", []],
+  ["npm run build --registry=https://r.example.invalid", []],
+  ["DOCKER_REGISTRY=r.example.invalid npm i lodash", ["install npm lodash@latest"]],
+  ["export NPM_CONFIG_REGISTRY=https://r.example.invalid", []],
 ];
 
 describe("parseInstallCommand", () => {
@@ -255,6 +278,21 @@ describe("parseInstallCommand: invocations", () => {
 });
 
 describe("parseInstallCommand: findings", () => {
+  test("registry-override", () => {
+    const { findings } = parseInstallCommand("NPM_CONFIG_REGISTRY=https://a.example.invalid npm i --registry=https://b.example.invalid lodash");
+    expect(findings).toEqual([{
+      id: "registry-override",
+      severity: "high",
+      package: "(command)",
+      message: "this command makes the package manager use a registry or config file that depward didn't check, so what it installs may not be what depward looked up",
+      evidence: [{
+        snippet: "NPM_CONFIG_REGISTRY=https://a.example.invalid npm i --registry=https://b.example.invalid lodash",
+        detail: "--registry=https://b.example.invalid, NPM_CONFIG_REGISTRY=https://a.example.invalid",
+      }],
+      docsUrl: "https://github.com/lavitsamson/depward/blob/main/docs/findings.md#registry-override",
+    }]);
+  });
+
   test("non-registry-source", () => {
     const [f] = parseInstallCommand("npm i github:user/repo").findings;
     expect(f).toEqual({

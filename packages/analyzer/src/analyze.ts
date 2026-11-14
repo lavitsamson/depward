@@ -27,8 +27,9 @@ const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
  * Statically profiles one package: its capabilities, risk signals, files, endpoints, and
  * env keys. It never executes package code. Pass the output of `readTarball`.
  *
- * Throws a `DepwardError` with `LIMIT_EXCEEDED` (too many files) or `INVALID_ARCHIVE`
- * (no readable `package.json` object at the package root).
+ * Throws a `DepwardError` with `LIMIT_EXCEEDED` (too many files), `INVALID_ARCHIVE`
+ * (no readable `package.json` object at the package root), or `TIMEOUT` (past
+ * `opts.deadline`).
  */
 export function analyzePackage(pkgFiles: PackageFiles, opts: AnalyzeOptions = {}): PackageProfile {
   const maxFileBytes = opts.maxFileBytes ?? 5 * 1024 * 1024;
@@ -52,6 +53,9 @@ export function analyzePackage(pkgFiles: PackageFiles, opts: AnalyzeOptions = {}
   const minified: boolean[] = [];
 
   for (const file of pkgFiles.files) {
+    if (opts.deadline !== undefined && Date.now() > opts.deadline) {
+      throw new DepwardError("TIMEOUT", `analysis did not finish in time (stopped after ${files.length} of ${pkgFiles.files.length} files)`);
+    }
     const c = classifyFile(file.path, file.data);
     const summary: FileSummary = { path: file.path, size: file.data.byteLength, kind: c.kind, sha256: sha256(file.data) };
     files.push(summary);

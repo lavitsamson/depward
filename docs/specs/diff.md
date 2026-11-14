@@ -101,8 +101,13 @@ interface PackageDiff {
   major, otherwise the highest unused removed version. Added entries left over are new
   packages.
 - **New packages**, and `changed` entries (same name@version) whose integrity or
-  source changed, run the gate's registry and tarball checks. A change to the dev or
-  optional flag only is not checked.
+  source changed, run the gate's registry and tarball checks. So do entries whose
+  `resolved` changed while either side has no integrity (amended 2026-11-14: a hash on
+  both sides pins the bytes; without one, a new URL can mean a new tarball). A change to
+  the dev or optional flag only is not checked.
+- **npm entries** with a semver version and a registry-style `/-/` tarball URL are
+  registry entries even without integrity (amended 2026-11-14), so the source rule below
+  applies to them.
 - **Sources:** new git, tarball-URL, and other non-npm entries emit `non-registry-source`.
   `file`, `link`, `workspace`, and `bundled` entries are skipped (listed as skipped).
 - **Young dependencies:** `diff-new-dependency` is `high` when the new dependency's own
@@ -111,6 +116,13 @@ interface PackageDiff {
   (critical) fires when the lockfile's integrity disagrees with the registry's `dist`
   for that version. This catches a lockfile whose `resolved` URL was redirected to
   another tarball.
+- **Source (added 2026-11-14):** when no lockfile hash can be compared with the
+  registry's (none recorded, or only algorithms the registry doesn't publish) and
+  `resolved` is not served by the registry, `lockfile-untrusted-source` (critical)
+  fires. "Served by the registry" means the origin of the version's `dist.tarball`, or
+  `registry.npmjs.org`, `registry.npmjs.com`, or `registry.yarnpkg.com` over https.
+  Without this rule, a `sha256-` hash of an attacker's tarball on another host passes
+  the integrity rule (nothing to compare) and the package manager's own check.
 - **Limits:** at most 1,000 packages to check (`LIMIT_EXCEEDED` above that). The same
   change in several lockfiles is checked once. Lookups that fail are reported per
   package and make the CLI exit 1.

@@ -31,6 +31,7 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   // Command (tokenizer)
   "non-registry-source": "ask",
   "unparseable-command": "ask",
+  "registry-override": "ask",
   "global-install": "allow",
   // Registry
   "package-not-found": "deny",
@@ -49,6 +50,7 @@ export const DEFAULT_ACTIONS: Readonly<Record<string, PolicyAction>> = {
   "tarball-unsafe": "deny",
   // Lockfile (emitted by @depward/diff lockfile mode)
   "lockfile-integrity-mismatch": "deny",
+  "lockfile-untrusted-source": "deny",
   // Analyzer signals
   "install-script": "allow",
   "install-script-network": "ask",

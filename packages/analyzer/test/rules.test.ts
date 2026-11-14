@@ -105,6 +105,12 @@ describe("package handling", () => {
     }
   });
 
+  test("throws TIMEOUT once past the deadline, between files", () => {
+    const files = readTarball(packTarball([PKG, { path: "a.js", data: "1" }, { path: "b.js", data: "2" }]));
+    expect(() => analyzePackage(files, { deadline: Date.now() - 1 })).toThrow(expect.objectContaining({ code: "TIMEOUT" }));
+    expect(analyzePackage(files, { deadline: Date.now() + 60_000 }).stats.parsed).toBe(2);
+  });
+
   test("throws LIMIT_EXCEEDED over maxFiles", () => {
     const files = readTarball(packTarball([PKG, { path: "a.js", data: "1" }]));
     try {
@@ -174,13 +180,27 @@ describe("install scripts", () => {
     ["wget -q -O- x", "runs curl/wget"],
     ['node -e "require(1)"', "runs inline code with node -e"],
     ["node --no-warnings --eval x", "runs inline code with node -e"],
+    ["node.exe -p 1", "runs inline code with node -e"],
+    ["NODE -E x", "runs inline code with node -e"],
+    ["node a b --print=1", "runs inline code with node -e"],
+    ["echo x && node -e 1", "runs inline code with node -e"],
+    ["(node -e 1)", "runs inline code with node -e"],
+    ["echo `node -e 1`", "runs inline code with node -e"],
     ["powershell -c Invoke-WebRequest x", "runs a Windows download tool"],
   ])("%s", (script, why) => {
     expect(scriptNetworkReason(script)).toBe(why);
   });
 
-  test.each(["node-gyp rebuild", "node ./install.js", "husky install", "echo curling"])("%s is not network by itself", (s) => {
+  test.each(["node-gyp rebuild", "node ./install.js", "husky install", "echo curling", "node a; echo -e x", "node x --evaluate", "/usr/bin/node -e 1", "node"])("%s is not network by itself", (s) => {
     expect(scriptNetworkReason(s)).toBeUndefined();
+  });
+
+  test("a huge script is read in linear time", () => {
+    // Many `node` words and no -e: quadratic matching took ~50 s on this input.
+    const script = " node a".repeat(75_000);
+    const started = performance.now();
+    expect(scriptNetworkReason(script)).toBeUndefined();
+    expect(performance.now() - started).toBeLessThan(2000);
   });
 
   test("entry words and resolution", () => {

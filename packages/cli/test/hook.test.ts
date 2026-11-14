@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createFixtureRegistryClient } from "@depward/core/testing";
 import { claudeAdapter, createGateData, hookVerdict, preloadAnalyzer, type Decision } from "@depward/gate";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { fakeRegistry } from "../../diff/test/fake-registry.ts";
 import { readStdin } from "../src/hook.ts";
 import { EXIT, main, type Io } from "../src/index.ts";
 
@@ -171,6 +172,21 @@ describe("time budget and failures", () => {
     expect(performance.now() - started).toBeLessThan(2000);
     expect(decisionOf(r.out).permissionDecision).toBe("ask");
   });
+
+  test("a package that takes long to analyze is cut off near the budget, not when analysis ends", async () => {
+    // Analysis is synchronous, so the budget timer can't fire during it; the analyzer
+    // checks the deadline between files. This package takes several seconds to analyze.
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 60; i++) files[`lib/f${i}.js`] = `var a${i} = [${"1,".repeat(100_000)}];\n`;
+    const reg = fakeRegistry({ "fx-heavy": { versions: { "1.0.0": { files } } } });
+    const started = performance.now();
+    const r = await hook(payload("npm i fx-heavy"), { hookBudgetMs: 300, gate: { registry: reg.client, data, now: () => NOW } });
+    const elapsed = performance.now() - started;
+    const d = decisionOf(r.out);
+    expect(d.permissionDecision).toBe("ask");
+    expect(d.permissionDecisionReason).toMatch(/TIMEOUT|didn't finish/);
+    expect(elapsed).toBeLessThan(2500);
+  }, 60_000);
 
   test("commands with no package manager don't wait on the registry at all", async () => {
     const slow = { ...createFixtureRegistryClient(FIXTURES), packument: () => new Promise<never>(() => {}) };

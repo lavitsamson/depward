@@ -132,8 +132,8 @@ export interface LockfileDiff {
 
 /**
  * Compares two lockfiles. Fields one side does not record (`null`) are not compared, so
- * switching package managers does not report every entry as changed. When neither side
- * has integrity, a different `resolved` (for example a new git commit) counts as a change.
+ * switching package managers does not report every entry as changed. When either side
+ * lacks integrity, a different `resolved` (another host, a new git commit) counts as a change.
  */
 export function diffLockfiles(base: Lockfile, head: Lockfile): LockfileDiff {
   const added: LockfileEntry[] = [];
@@ -166,6 +166,8 @@ function differs<T>(x: T | null, y: T | null): boolean {
 function entryChanged(a: LockfileEntry, b: LockfileEntry): boolean {
   if (a.source !== b.source) return true;
   if (differs(a.integrity, b.integrity)) return true;
-  if (a.integrity === null && b.integrity === null && differs(a.resolved, b.resolved)) return true;
+  // Integrity pins the content only when both sides record it. Otherwise a new `resolved`
+  // (another host, a new git commit) can mean another tarball.
+  if ((a.integrity === null || b.integrity === null) && differs(a.resolved, b.resolved)) return true;
   return differs(a.dev, b.dev) || differs(a.optional, b.optional);
 }

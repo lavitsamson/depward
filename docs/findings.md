@@ -216,6 +216,21 @@ tarball check. Default actions (allow / ask / deny) are applied by the policy en
 - **Fix:** write the package names literally, then run the command again.
 - **False positives:** scripts that compute versions from variables on purpose.
 
+### registry-override
+
+- **Default severity:** high (default action: ask)
+- **Emitted by:** `@depward/gate` (`parseInstallCommand`)
+- **Meaning:** the command makes the package manager use a registry or config file
+  that depward didn't check: `--registry`, `--@scope:registry`, `--userconfig`, pnpm
+  `--config.registry`, bun `-c`, an `NPM_CONFIG_REGISTRY` / `YARN_NPM_REGISTRY_SERVER` /
+  `BUN_CONFIG_REGISTRY` style variable (on the command or exported earlier in the line),
+  or `npm config set registry …`. depward looked the packages up in the registry from
+  `.npmrc` and the config, so an attacker's registry could serve a different package
+  under the same name and version. The evidence lists the overrides.
+- **Fix:** drop the override, or set the registry in `.npmrc` (or the config's
+  `registry`) so depward checks the same registry the package manager uses.
+- **False positives:** a deliberate one-off install from a private mirror.
+
 ### global-install
 
 - **Default severity:** info (default action: allow)
@@ -415,6 +430,25 @@ downgrade its own result to `onError`.
   find out who changed the lockfile.
 - **False positives:** a private registry or mirror that rebuilds tarballs, when depward
   is configured with a different registry from the one that wrote the lockfile.
+
+### lockfile-untrusted-source
+
+- **Default severity:** critical (default action: deny)
+- **Emitted by:** `@depward/diff` (`diffLockfile`)
+- **Meaning:** a new, updated, or changed registry entry in the head lockfile downloads
+  its tarball (`resolved`) from a host other than the registry, and none of its hashes
+  can be compared with the registry's: it has no integrity, or only algorithms the
+  registry doesn't publish (for example `sha256-` when the registry lists sha512 and
+  sha1). depward analyzed the registry's tarball, but the package manager would install
+  whatever that host serves, and its own integrity check would pass. The registry is the
+  origin of the version's `dist.tarball`, or the public npm registry over https
+  (`registry.npmjs.org`, `registry.npmjs.com`, `registry.yarnpkg.com`). The evidence
+  shows the URL and both sides' hashes.
+- **Fix:** regenerate the entry (`npm install <name>@<version>` with a clean cache), and
+  find out who changed the lockfile.
+- **False positives:** a mirror whose lockfile entries record no integrity, or only
+  hashes the registry doesn't publish. A mirror that records the registry's sha512 is
+  not flagged.
 
 ## Gate: policy (`@depward/gate`)
 

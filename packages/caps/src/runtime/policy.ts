@@ -3,6 +3,7 @@
 // of that name). A minimal reader, because the runtime can't import the main package.
 
 import { DepwardCapabilityError } from "./errors.ts";
+import { SafeMap, SafeSet, StringLastIndexOf, StringSlice } from "./intrinsics.ts";
 
 const NUMS = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/;
 
@@ -23,10 +24,11 @@ export function compareVersions(a: string, b: string): number {
   return pa < pb ? -1 : 1;
 }
 
+/** `name@version` → its parts. Uses captured string methods: it runs on every new use record. */
 function split(key: string): { name: string; version: string } | null {
-  const at = key.lastIndexOf("@");
+  const at = StringLastIndexOf(key, "@");
   if (at <= 0 || at === key.length - 1) return null;
-  return { name: key.slice(0, at), version: key.slice(at + 1) };
+  return { name: StringSlice(key, 0, at), version: StringSlice(key, at + 1) };
 }
 
 /** What a package may do at runtime. */
@@ -54,21 +56,28 @@ export function parsePolicy(text: string, path: string): RuntimePolicy {
     return fail("not valid JSON");
   }
   if (!isRecord(doc) || doc["version"] !== 1 || !isRecord(doc["packages"])) return fail("not a version 1 capability lockfile");
-  const exact = new Map<string, ReadonlySet<string>>();
-  const latest = new Map<string, { version: string; caps: ReadonlySet<string> }>();
+  // This runs at startup, before package code. `allows` runs later, while packages may
+  // have replaced Map, Set, or String methods, so it only uses the Safe* copies.
+  const exact = new SafeMap<string, SafeSet<string>>();
+  const latest = new SafeMap<string, { version: string; caps: SafeSet<string> }>();
   for (const [key, entry] of Object.entries(doc["packages"])) {
     const parts = split(key);
     const caps = isRecord(entry) ? entry["capabilities"] : undefined;
     if (parts === null || !Array.isArray(caps) || !caps.every((c) => typeof c === "string")) return fail(`invalid entry ${JSON.stringify(key)}`);
-    const set = new Set(caps as string[]);
+    const set = new SafeSet<string>();
+    for (const c of caps as string[]) set.add(c);
     exact.set(key, set);
     const seen = latest.get(parts.name);
     if (seen === undefined || compareVersions(parts.version, seen.version) > 0) latest.set(parts.name, { version: parts.version, caps: set });
   }
   return {
     allows(key, cap) {
-      const caps = exact.get(key) ?? latest.get(split(key)?.name ?? key)?.caps;
-      return caps?.has(cap) ?? false;
+      let caps = exact.get(key);
+      if (caps === undefined) {
+        const parts = split(key);
+        caps = latest.get(parts === null ? key : parts.name)?.caps;
+      }
+      return caps === undefined ? false : caps.has(cap);
     },
   };
 }

@@ -134,4 +134,11 @@ export interface AnalyzeOptions {
   maxUsesPerCapability?: number;
   /** Most evidence entries per signal. Default 10. */
   maxEvidence?: number;
+  /**
+   * Wall-clock time (ms since the epoch, as `Date.now()`) after which analysis stops with
+   * a `TIMEOUT` error. Checked before each file, so it is overrun by at most one file.
+   * Analysis is synchronous: a timer can't interrupt it, this can. It doesn't change the
+   * result of an analysis that finishes, so it is not part of any cache key. Default: none.
+   */
+  deadline?: number;
 }

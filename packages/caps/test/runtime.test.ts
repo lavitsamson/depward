@@ -4,6 +4,7 @@
 
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -110,6 +111,17 @@ function lockfile(packages: Record<string, string[]>): Promise<void> {
 
 describe("enforce mode", () => {
   const SERVER_CAPS = { "orm-client@1.0.0": ["crypto", "env", "fs"], "web-framework@1.0.0": ["fs", "net"], "etag-lite@1.0.0": ["crypto"] };
+
+  // A package that replaces a built-in the runtime uses must not turn a denial into an
+  // approval (ADR 0007: intrinsics are captured at startup). fs is approved only for
+  // identities a tampered runtime could be tricked into using.
+  const tamperer = createRequire(import.meta.url)(join(APP, "node_modules", "tamperer")) as { PROBES: string[]; ACCESS: string[] };
+  test.each(tamperer.PROBES)("tampering with %s doesn't turn a denial into an approval", async (probe) => {
+    await lockfile({ "tamperer@1.0.0": [], "tamperer@0.0.1": ["env", "fs"], "other@1.0.0": ["env", "fs"] });
+    const r = await runApp("tamper.mjs", [probe], { DEPWARD_CAPS_MODE: "enforce" });
+    const out = JSON.parse(r.stdout || "{}") as Record<string, { code?: string }>;
+    expect(Object.fromEntries(tamperer.ACCESS.map((how) => [how, out[how]?.code])), r.stderr).toEqual(Object.fromEntries(tamperer.ACCESS.map((how) => [how, "CAPS_DENIED"])));
+  }, 60_000);
 
   test("approved uses run; an unapproved use throws DepwardCapabilityError naming package, capability and call site", async () => {
     await lockfile(SERVER_CAPS);
