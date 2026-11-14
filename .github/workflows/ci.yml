@@ -93,6 +93,34 @@ jobs:
   # from the PR's own bundle. It reads the registry and analyzes tarballs in memory;
   # nothing is installed or run. Fails when a changed package's risk is critical.
   # On a fork PR the token is read-only: the report goes to the job summary instead.
+  # Dogfood the capability lockfile: a dependency change that brings a capability nobody
+  # approved fails here. Fix: `pnpm depward caps approve <name> --reason "..."` (see
+  # CONTRIBUTING.md). Exit 1 means a registry lookup failed (often a transient timeout on
+  # a large tarball): retry once; analyzed packages are cached within the job.
+  caps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: depward caps check
+        run: |
+          set +e
+          pnpm depward caps check --concurrency 4
+          code=$?
+          if [ "$code" = 1 ]; then
+            echo "::warning::caps check could not look up every package; retrying once"
+            pnpm depward caps check --concurrency 4
+            code=$?
+          fi
+          exit $code
+
   dogfood:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

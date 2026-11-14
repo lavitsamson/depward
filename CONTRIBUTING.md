@@ -11,6 +11,23 @@ pnpm lint && pnpm test
 Report security issues privately, as described in [SECURITY.md](SECURITY.md), not in a
 public issue or PR.
 
+## Changing dependencies
+
+This repository dogfoods its own capability lockfile. CI runs `depward caps check`, which
+fails when a dependency change brings a capability (`fs`, `net`, `child_process`, ...)
+that `capabilities.lock.json` doesn't list for that package. After changing
+`pnpm-lock.yaml`:
+
+```bash
+pnpm depward caps check                                  # what's new and where it is used
+pnpm depward caps approve <name> --reason "why it's fine" # after reviewing the uses
+```
+
+Commit the updated `capabilities.lock.json` with the lockfile. Runtime dependencies are
+also limited by the allowlist in CLAUDE.md, so a new capability there needs extra care.
+`pnpm depward caps scan` re-baselines the whole file (it drops entries for packages that
+are no longer locked); use it only after reviewing the change.
+
 ## Adding a hallucinated package name
 
 `data/hallucinated-names.json` lists package names that AI models are **publicly
